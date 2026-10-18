@@ -43,6 +43,22 @@ export type TxPhase =
   | "confirmed"
   | "failed";
 
+
+/** Next nonce for `address` from the node RPC (not the lagging indexer). */
+async function getNextNonce(address: string): Promise<number> {
+  const url = `${STACKS_API_URL}/v2/accounts/${encodeURIComponent(address)}?proof=0`;
+  const res = await fetch(url);
+  if (!res.ok) {
+    throw new EscrowError(`Failed to fetch nonce for ${address} (${res.status}).`);
+  }
+  const data = (await res.json()) as { nonce?: number | string };
+  const nonce = Number(data.nonce);
+  if (!Number.isFinite(nonce) || nonce < 0) {
+    throw new EscrowError("The node returned an invalid nonce.");
+  }
+  return nonce;
+}
+
 export interface OnChainProject {
   id: number;
   client: string;
@@ -393,6 +409,7 @@ export async function createAndFund(
   ];
 
   const postConditions = [tokenPostCondition(sender, total)];
+  const nonce = await getNextNonce(sender);
 
   let txid: string;
   try {
@@ -403,6 +420,7 @@ export async function createAndFund(
       network: STACKS_NETWORK,
       postConditions,
       postConditionMode: "deny",
+      nonce,
     });
     txid = (response as { txid?: string })?.txid ?? "";
   } catch (error) {
@@ -451,6 +469,7 @@ export async function approveAndPay(
   onPhase?.("waiting-wallet");
 
   const postConditions = [tokenPostCondition(escrow.id, milestone.amount)];
+  const nonce = await getNextNonce(sender);
 
   let txid: string;
   try {
@@ -461,6 +480,7 @@ export async function approveAndPay(
       network: STACKS_NETWORK,
       postConditions,
       postConditionMode: "deny",
+      nonce,
     });
     txid = (response as { txid?: string })?.txid ?? "";
   } catch (error) {
@@ -494,6 +514,7 @@ export async function cancelRemaining(
 
   const postConditions =
     project.remaining > 0n ? [tokenPostCondition(escrow.id, project.remaining)] : [];
+  const nonce = await getNextNonce(sender);
 
   let txid: string;
   try {
@@ -504,6 +525,7 @@ export async function cancelRemaining(
       network: STACKS_NETWORK,
       postConditions,
       postConditionMode: "deny",
+      nonce,
     });
     txid = (response as { txid?: string })?.txid ?? "";
   } catch (error) {
