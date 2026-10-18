@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   connectWallet,
   disconnectWallet,
-  getUserAddress,
+  useWalletAddress,
   StacksConnectError,
 } from "@/lib/stacks";
 
@@ -14,30 +14,22 @@ function truncateAddress(address: string): string {
 }
 
 export default function WalletConnectButton() {
-  const [address, setAddress] = useState<string | null>(null);
+  const address = useWalletAddress();
   const [isConnecting, setIsConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  // Restore an already-connected session (address is cached by
-  // @stacks/connect in local storage) on first mount.
-  useEffect(() => {
-    setAddress(getUserAddress());
-  }, []);
 
   async function handleConnect() {
     setIsConnecting(true);
     setError(null);
 
     try {
-      const session = await connectWallet();
-      setAddress(session.stxAddress);
+      await connectWallet();
     } catch (err) {
       const message =
         err instanceof StacksConnectError
           ? err.message
           : "Something went wrong connecting your wallet.";
       setError(message);
-      setAddress(null);
     } finally {
       setIsConnecting(false);
     }
@@ -45,7 +37,6 @@ export default function WalletConnectButton() {
 
   function handleDisconnect() {
     disconnectWallet();
-    setAddress(null);
     setError(null);
   }
 

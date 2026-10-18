@@ -51,10 +51,11 @@ export default function ProjectForm({
         "Number of milestones is required.";
     } else if (
       !Number.isInteger(milestones) ||
-      milestones <= 0
+      milestones <= 0 ||
+      milestones > 20
     ) {
       nextErrors.milestoneCount =
-        "Number of milestones must be greater than 0.";
+        "Number of milestones must be between 1 and 20.";
     }
 
     return nextErrors;
@@ -168,7 +169,7 @@ export default function ProjectForm({
           type="text"
           value={clientWallet}
           onChange={(e) => setClientWallet(e.target.value)}
-          placeholder="SP2..."
+          placeholder="ST..."
           className="w-full rounded-xl border border-white/10 bg-black/40 px-4 py-3 text-white placeholder:text-white/30 outline-none focus:border-blue-500"
         />
 

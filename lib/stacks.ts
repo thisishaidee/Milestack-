@@ -8,6 +8,9 @@
 // specific session shape so the rest of the app doesn't depend on the
 // @stacks/connect API surface directly.
 
+"use client";
+
+import { useEffect, useState } from "react";
 import {
   connect,
   disconnect,
@@ -15,6 +18,13 @@ import {
   getLocalStorage,
 } from "@stacks/connect";
 import { TESTNET_ADDRESS_PREFIX } from "@/lib/constants";
+
+type WalletListener = (address: string | null) => void;
+const walletListeners = new Set<WalletListener>();
+
+function emitWalletChange(address: string | null) {
+  walletListeners.forEach((listener) => listener(address));
+}
 
 /**
  * Minimal "user session" MileStack cares about: the connected
@@ -84,6 +94,7 @@ export async function connectWallet(): Promise<StacksUserSession> {
     );
   }
 
+  emitWalletChange(session.stxAddress);
   return session;
 }
 
@@ -115,4 +126,39 @@ export function disconnectWallet(): void {
   } catch (error) {
     console.error("[stacks] Failed to disconnect wallet:", error);
   }
+  emitWalletChange(null);
+}
+
+export function subscribeWallet(listener: WalletListener): () => void {
+  walletListeners.add(listener);
+  return () => {
+    walletListeners.delete(listener);
+  };
+}
+
+/** Current connected Testnet address; updates on connect, disconnect, or switch. */
+export function useWalletAddress(): string | null {
+  const [address, setAddress] = useState<string | null>(null);
+
+  useEffect(() => {
+    const sync = () => {
+      const next = getUserAddress();
+      setAddress((prev) => (prev === next ? prev : next));
+    };
+
+    sync();
+    const unsubscribe = subscribeWallet(sync);
+    window.addEventListener("focus", sync);
+    window.addEventListener("storage", sync);
+    const timer = window.setInterval(sync, 1500);
+
+    return () => {
+      unsubscribe();
+      window.removeEventListener("focus", sync);
+      window.removeEventListener("storage", sync);
+      window.clearInterval(timer);
+    };
+  }, []);
+
+  return address;
 }

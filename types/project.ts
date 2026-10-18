@@ -6,7 +6,11 @@ export interface Project {
   totalBudget: number;
   clientWallet: string;
   milestones: Milestone[];
-  vaultBalance: number;
-  releasedBalance: number;
   createdAt: string;
+  onChainId?: number;
+  depositTxid?: string;
+  cancelTxid?: string;
+  cancelled?: boolean;
+  vaultBalance?: number;
+  releasedBalance?: number;
 }

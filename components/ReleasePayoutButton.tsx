@@ -2,48 +2,91 @@
 
 import { useState } from "react";
 import type { Milestone } from "@/types/milestone";
-import { releaseMilestoneFunds, FlowVaultError } from "@/lib/flowvault";
+import {
+  approveAndPay,
+  EscrowError,
+  messageForEscrowError,
+  type TxPhase,
+} from "@/lib/escrow";
+import { useWalletAddress } from "@/lib/stacks";
 
 interface ReleasePayoutButtonProps {
   milestone: Milestone;
-  onRelease: (txHash: string) => void;
+  onChainId?: number;
+  clientAddress?: string;
+  funded: boolean;
+  onPaid: (txid: string) => void;
 }
 
-type ReleaseStatus = "idle" | "loading" | "success" | "error";
+type ReleaseStatus = TxPhase;
+
+function label(status: ReleaseStatus, milestone: Milestone): string {
+  if (milestone.status === "paid" || milestone.status === "released") return "Paid";
+  if (milestone.status === "cancelled") return "Cancelled";
+  switch (status) {
+    case "waiting-wallet":
+      return "Waiting for wallet…";
+    case "submitted":
+      return "Submitted…";
+    case "confirming":
+      return "Confirming…";
+    case "confirmed":
+      return "Paid";
+    default:
+      return "Approve & pay";
+  }
+}
 
 export default function ReleasePayoutButton({
   milestone,
-  onRelease,
+  onChainId,
+  clientAddress,
+  funded,
+  onPaid,
 }: ReleasePayoutButtonProps) {
-  const [status, setStatus] = useState<ReleaseStatus>("idle");
-  const [txHash, setTxHash] = useState<string | null>(null);
+  const walletAddress = useWalletAddress();
+  const [status, setStatus] = useState<ReleaseStatus>("ready");
+  const [txHash, setTxHash] = useState<string | null>(milestone.payoutTxid ?? null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const alreadyReleased = milestone.status === "released";
-  const isCompleted = milestone.status === "completed";
-  const isDisabled = !isCompleted || alreadyReleased || status === "loading";
+  const alreadyPaid = milestone.status === "paid" || milestone.status === "released";
+  const cancelled = milestone.status === "cancelled";
+  const isCompleted = milestone.status === "completed" || alreadyPaid;
+  const index = milestone.onChainIndex;
+  const busy = status === "waiting-wallet" || status === "submitted" || status === "confirming";
+  const isClient =
+    Boolean(walletAddress) &&
+    Boolean(clientAddress) &&
+    walletAddress === clientAddress.trim();
+  const isDisabled =
+    !funded ||
+    typeof onChainId !== "number" ||
+    typeof index !== "number" ||
+    !isCompleted ||
+    alreadyPaid ||
+    cancelled ||
+    busy ||
+    !isClient;
 
   async function handleRelease() {
-    if (!isCompleted || alreadyReleased) {
-      return;
-    }
+    if (typeof onChainId !== "number" || typeof index !== "number") return;
 
-    setStatus("loading");
     setErrorMessage(null);
     setTxHash(null);
 
     try {
-      const result = await releaseMilestoneFunds(milestone);
-      setTxHash(result.txHash);
-      setStatus("success");
-      onRelease(result.txHash);
+      const result = await approveAndPay(onChainId, index, (next, detail) => {
+        setStatus(next);
+        if (detail) setTxHash(detail);
+      });
+      setTxHash(result.txid);
+      setStatus("confirmed");
+      onPaid(result.txid);
     } catch (error) {
-      const message =
-        error instanceof FlowVaultError
-          ? error.message
-          : "Something went wrong while releasing this payout.";
-      setErrorMessage(message);
-      setStatus("error");
+      setStatus("failed");
+      setErrorMessage(
+        error instanceof EscrowError ? error.message : messageForEscrowError(error)
+      );
     }
   }
 
@@ -55,47 +98,32 @@ export default function ReleasePayoutButton({
         disabled={isDisabled}
         className="rounded-md bg-vault-accent px-3 py-1.5 text-xs font-medium text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
       >
-        {status === "loading"
-          ? "Releasing…"
-          : alreadyReleased
-          ? "Released"
-          : "Release Payout"}
+        {label(status, milestone)}
       </button>
 
-      {!isCompleted && !alreadyReleased && (
+      {!funded && (
+        <p className="text-[11px] text-white/40">Fund escrow before paying a milestone.</p>
+      )}
+
+      {funded && !isClient && !alreadyPaid && !cancelled && (
         <p className="text-[11px] text-white/40">
-          Mark this milestone completed to release its payout.
+          Connect the project client wallet to approve payout.
         </p>
       )}
 
-      {alreadyReleased && status !== "success" && (
+      {funded && isClient && !isCompleted && !alreadyPaid && !cancelled && (
         <p className="text-[11px] text-white/40">
-          This milestone has already been released.
+          Mark this milestone completed to approve payout.
         </p>
       )}
 
-      {status === "loading" && (
-        <p className="text-[11px] text-white/60">
-          Confirm the transaction in your wallet…
-        </p>
-      )}
+      {txHash && <p className="max-w-xs break-all text-[11px] text-white/50">Tx: {txHash}</p>}
 
-      {status === "success" && txHash && (
-        <div className="max-w-xs rounded-md border border-emerald-400/20 bg-emerald-400/10 px-2 py-1 text-right">
-          <p className="text-[11px] font-medium text-emerald-300">
-            Payout released.
-          </p>
-          <p className="break-all text-[11px] text-emerald-200/80">
-            Tx hash: {txHash}
-          </p>
-        </div>
-      )}
-
-      {status === "error" && errorMessage && (
+      {status === "error" || errorMessage ? (
         <div className="max-w-xs rounded-md border border-red-400/20 bg-red-400/10 px-2 py-1 text-right">
           <p className="text-[11px] text-red-300">{errorMessage}</p>
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

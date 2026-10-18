@@ -2,25 +2,24 @@
 
 import { useEffect, useState } from "react";
 import VaultStatus from "@/components/VaultStatus";
-import { getUserAddress } from "@/lib/stacks";
+import { getProject } from "@/lib/projectStore";
 
 interface VaultDetailPageProps {
   params: { id: string };
 }
 
 export default function VaultDetailPage({ params }: VaultDetailPageProps) {
-  // Vault state is wallet-scoped, not project-scoped (see lib/flowvault.ts),
-  // so this reads the connected wallet's address rather than using params.id.
-  const [walletAddress, setWalletAddress] = useState<string | undefined>();
+  const [onChainId, setOnChainId] = useState<number | undefined>();
 
   useEffect(() => {
-    setWalletAddress(getUserAddress() ?? undefined);
-  }, []);
+    const project = getProject(params.id);
+    setOnChainId(project?.onChainId);
+  }, [params.id]);
 
   return (
     <div className="mx-auto max-w-3xl px-6 py-16">
-      <h1 className="mb-6 text-2xl font-semibold">Vault</h1>
-      <VaultStatus walletAddress={walletAddress} />
+      <h1 className="mb-6 text-2xl font-semibold">Escrow</h1>
+      <VaultStatus onChainId={onChainId} />
     </div>
   );
 }

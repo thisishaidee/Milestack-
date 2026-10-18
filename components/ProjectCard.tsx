@@ -7,13 +7,13 @@ export default function ProjectCard({ project }: { project: Project }) {
         <h3 className="text-xl font-bold">{project.name}</h3>
 
         <span className="rounded-full bg-blue-600/20 px-3 py-1 text-xs font-semibold text-blue-400">
-          Active
+          {project.onChainId ? (project.cancelled ? "Cancelled" : "Funded") : "Draft"}
         </span>
       </div>
 
       <div className="mt-5 space-y-2 text-sm text-white/60">
-        <p>Budget: --</p>
-        <p>Milestones: --</p>
+        <p>Budget: {project.totalBudget.toLocaleString()} USDCx</p>
+        <p>Milestones: {project.milestones.length}</p>
       </div>
 
       <div className="mt-6">

@@ -1,4 +1,11 @@
-export type MilestoneStatus = "pending" | "completed" | "released";
+export type OnChainMilestoneStatus = "pending" | "paid" | "cancelled";
+
+export type MilestoneStatus =
+  | "pending"
+  | "completed"
+  | "paid"
+  | "released"
+  | "cancelled";
 
 export interface Milestone {
   id: string;
@@ -6,4 +13,6 @@ export interface Milestone {
   amount: number;
   contributorWallet: string;
   status: MilestoneStatus;
+  onChainIndex?: number;
+  payoutTxid?: string;
 }

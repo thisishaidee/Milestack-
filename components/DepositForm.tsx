@@ -1,111 +1,126 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { Project } from "@/types/project";
-import { getUserAddress } from "@/lib/stacks";
-import { setRoutingRules, depositFunds, FlowVaultError } from "@/lib/flowvault";
+import { useWalletAddress } from "@/lib/stacks";
+import {
+  createAndFund,
+  EscrowError,
+  isTestnetPrincipal,
+  messageForEscrowError,
+  type TxPhase,
+} from "@/lib/escrow";
+import { ESCROW_CONTRACT_ADDRESS, MAX_MILESTONES } from "@/lib/constants";
 
 interface DepositFormProps {
   project: Project;
-  onDeposit: (txHash: string) => void;
+  onFunded: (payload: { onChainId: number; txid: string }) => void;
 }
-
-type DepositStatus = "idle" | "loading" | "success" | "error";
 
 function validateMilestones(project: Project): string | null {
   if (project.milestones.length === 0) {
     return "This project has no milestones to fund.";
   }
+  if (project.milestones.length > MAX_MILESTONES) {
+    return `A project can have at most ${MAX_MILESTONES} milestones.`;
+  }
 
   for (const milestone of project.milestones) {
     if (!milestone.title.trim()) {
-      return "Every milestone needs a title before depositing.";
+      return "Every milestone needs a title before funding.";
     }
-
     if (!(Number(milestone.amount) > 0)) {
       return "Every milestone amount must be greater than 0.";
     }
-
-    if (!milestone.contributorWallet.trim()) {
-      return "Every milestone needs a contributor wallet before depositing.";
+    if (!isTestnetPrincipal(milestone.contributorWallet)) {
+      return "Every contributor wallet must be a Stacks Testnet address starting with ST.";
+    }
+    if (milestone.contributorWallet.trim() === project.clientWallet.trim()) {
+      return "A contributor wallet cannot be the same as the client wallet.";
     }
   }
 
   const sum = project.milestones.reduce(
-    (total, m) => total + (Number(m.amount) || 0),
+    (total, milestone) => total + (Number(milestone.amount) || 0),
     0
   );
-
   if (sum !== project.totalBudget) {
-    return `Milestone amounts total ${sum.toLocaleString()}, which doesn't match the project budget of ${project.totalBudget.toLocaleString()}.`;
+    return `Milestone amounts total ${sum.toLocaleString()}, which does not match the project budget of ${project.totalBudget.toLocaleString()}.`;
   }
 
   return null;
 }
 
-export default function DepositForm({
-  project,
-  onDeposit,
-}: DepositFormProps) {
-  const [walletAddress, setWalletAddress] = useState<string | null>(null);
-  const [status, setStatus] = useState<DepositStatus>("idle");
-  const [txHash, setTxHash] = useState<string | null>(null);
+function labelForPhase(phase: TxPhase, alreadyFunded: boolean): string {
+  if (alreadyFunded) return "Funded on-chain";
+  switch (phase) {
+    case "waiting-wallet":
+      return "Waiting for wallet…";
+    case "submitted":
+      return "Submitted…";
+    case "confirming":
+      return "Confirming on-chain…";
+    case "confirmed":
+      return "Escrow funded";
+    default:
+      return "Fund MileStack escrow";
+  }
+}
+
+export default function DepositForm({ project, onFunded }: DepositFormProps) {
+  const walletAddress = useWalletAddress();
+  const [phase, setPhase] = useState<TxPhase>("ready");
+  const [txid, setTxid] = useState<string | null>(project.depositTxid ?? null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  useEffect(() => {
-    setWalletAddress(getUserAddress());
-  }, []);
-
   const milestonesError = validateMilestones(project);
-  const isWalletConnected = Boolean(walletAddress);
-
-  const alreadyFunded =
-    (project.vaultBalance ?? 0) >= project.totalBudget;
-
+  const alreadyFunded = typeof project.onChainId === "number";
+  const walletMismatch =
+    Boolean(walletAddress) && walletAddress !== project.clientWallet.trim();
+  const busy = phase === "waiting-wallet" || phase === "submitted" || phase === "confirming";
   const isDisabled =
-    !isWalletConnected ||
+    alreadyFunded ||
+    busy ||
+    !walletAddress ||
     Boolean(milestonesError) ||
-    status === "loading" ||
-    alreadyFunded;
+    walletMismatch ||
+    !ESCROW_CONTRACT_ADDRESS;
 
   async function handleDeposit() {
     if (alreadyFunded) return;
 
-    setStatus("loading");
     setErrorMessage(null);
-    setTxHash(null);
+    setTxid(null);
 
     try {
-      await setRoutingRules(project);
-
-      const result = await depositFunds(project);
-
-      setTxHash(result.txHash);
-      setStatus("success");
-
-      onDeposit(result.txHash);
+      const result = await createAndFund(project, (next, detail) => {
+        setPhase(next);
+        if (detail && next !== "waiting-wallet") setTxid(detail);
+      });
+      setTxid(result.txid);
+      setPhase("confirmed");
+      onFunded(result);
     } catch (error) {
-      const message =
-        error instanceof FlowVaultError
-          ? error.message
-          : "Something went wrong while depositing to FlowVault.";
-
-      setErrorMessage(message);
-      setStatus("error");
+      setPhase("failed");
+      setErrorMessage(
+        error instanceof EscrowError ? error.message : messageForEscrowError(error)
+      );
     }
   }
 
   return (
     <div className="space-y-4 rounded-lg border border-white/10 bg-vault-panel p-6">
       <div className="flex items-center justify-between">
-        <span className="text-sm text-white/60">
-          Total Budget
-        </span>
-
+        <span className="text-sm text-white/60">Total to escrow</span>
         <span className="text-lg font-semibold">
-          {project.totalBudget.toLocaleString()}
+          {project.totalBudget.toLocaleString()} USDCx
         </span>
       </div>
+
+      <p className="text-xs text-white/50">
+        Funding deposits the full milestone schedule into the MileStack escrow
+        contract once. The contract stores each contributor and amount.
+      </p>
 
       <button
         type="button"
@@ -113,57 +128,42 @@ export default function DepositForm({
         disabled={isDisabled}
         className="w-full rounded-md bg-vault-accent px-4 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
       >
-        {status === "loading"
-          ? "Depositing..."
-          : alreadyFunded
-          ? "✓ Funds Deposited"
-          : "Deposit to FlowVault"}
+        {labelForPhase(phase, alreadyFunded)}
       </button>
 
-      {alreadyFunded && (
-        <div className="rounded-md border border-emerald-400/20 bg-emerald-400/10 p-3">
-          <p className="text-xs font-medium text-emerald-300">
-            This project has already been funded.
-          </p>
-        </div>
-      )}
-
-      {!isWalletConnected && (
-        <p className="text-xs text-white/50">
-          Connect a wallet to deposit into FlowVault.
-        </p>
-      )}
-
-      {isWalletConnected && milestonesError && (
+      {!ESCROW_CONTRACT_ADDRESS && (
         <p className="text-xs text-yellow-400">
-          {milestonesError}
+          Set NEXT_PUBLIC_ESCROW_CONTRACT_ADDRESS after deploying milestack-escrow.
         </p>
       )}
 
-      {status === "loading" && (
-        <p className="text-xs text-white/60">
-          Configuring routing rules and depositing funds — confirm the
-          transaction in your wallet...
+      {!walletAddress && (
+        <p className="text-xs text-white/50">
+          Connect the client Testnet wallet to fund escrow.
         </p>
       )}
 
-      {status === "success" && txHash && (
-        <div className="rounded-md border border-emerald-400/20 bg-emerald-400/10 p-3">
-          <p className="text-xs font-medium text-emerald-300">
-            Deposit successful.
-          </p>
-
-          <p className="mt-1 break-all text-xs text-emerald-200/80">
-            Tx hash: {txHash}
-          </p>
-        </div>
+      {walletMismatch && (
+        <p className="text-xs text-yellow-400">
+          Connected wallet does not match the project client.
+        </p>
       )}
 
-      {status === "error" && errorMessage && (
+      {walletAddress && milestonesError && (
+        <p className="text-xs text-yellow-400">{milestonesError}</p>
+      )}
+
+      {txid && <p className="break-all text-xs text-white/50">Tx: {txid}</p>}
+
+      {alreadyFunded && (
+        <p className="text-xs text-emerald-300">
+          On-chain project #{project.onChainId}
+        </p>
+      )}
+
+      {errorMessage && (
         <div className="rounded-md border border-red-400/20 bg-red-400/10 p-3">
-          <p className="text-xs text-red-300">
-            {errorMessage}
-          </p>
+          <p className="text-xs text-red-300">{errorMessage}</p>
         </div>
       )}
     </div>

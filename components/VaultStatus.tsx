@@ -1,161 +1,107 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import type { VaultState } from "@/types/vault";
-import { getVaultState, FlowVaultError } from "@/lib/flowvault";
+import {
+  getOnChainMilestones,
+  getOnChainProject,
+  getUsdcxDecimals,
+  messageForEscrowError,
+  type OnChainProject,
+} from "@/lib/escrow";
+import { formatDisplayAmount } from "@/lib/units";
+import { ESCROW_CONTRACT_ADDRESS } from "@/lib/constants";
 
 interface VaultStatusProps {
-  walletAddress?: string;
+  onChainId?: number;
 }
 
-type FetchStatus = "loading" | "success" | "error";
+export default function VaultStatus({ onChainId }: VaultStatusProps) {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [project, setProject] = useState<OnChainProject | null>(null);
+  const [paid, setPaid] = useState<bigint>(0n);
+  const [decimals, setDecimals] = useState(6);
 
-interface SummaryCard {
-  label: string;
-  value: number;
-  accent: string;
-}
+  const refresh = useCallback(async () => {
+    if (typeof onChainId !== "number") {
+      setProject(null);
+      return;
+    }
+    if (!ESCROW_CONTRACT_ADDRESS) {
+      setError("Escrow contract address is not configured.");
+      return;
+    }
 
-function formatAmount(value: number): string {
-  return value.toLocaleString(undefined, { maximumFractionDigits: 2 });
-}
-
-function truncateTxHash(hash: string): string {
-  if (hash.length <= 14) return hash;
-  return `${hash.slice(0, 8)}…${hash.slice(-6)}`;
-}
-
-export default function VaultStatus({ walletAddress }: VaultStatusProps) {
-  const [status, setStatus] = useState<FetchStatus>("loading");
-  const [vault, setVault] = useState<VaultState | null>(null);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-
-  const fetchVaultState = useCallback(
-    async (mode: "initial" | "refresh") => {
-      if (mode === "initial") {
-        setStatus("loading");
-      } else {
-        setIsRefreshing(true);
+    setLoading(true);
+    setError(null);
+    try {
+      const dec = await getUsdcxDecimals();
+      setDecimals(dec);
+      const chain = await getOnChainProject(onChainId);
+      if (!chain) {
+        setProject(null);
+        setError("No on-chain escrow project found for this id.");
+        return;
       }
-      setErrorMessage(null);
-
-      try {
-        const state = await getVaultState(walletAddress ?? "");
-        setVault(state);
-        setStatus("success");
-      } catch (error) {
-        const message =
-          error instanceof FlowVaultError
-            ? error.message
-            : "Failed to load vault state.";
-        setErrorMessage(message);
-        setStatus("error");
-      } finally {
-        if (mode === "refresh") {
-          setIsRefreshing(false);
-        }
-      }
-    },
-    [walletAddress]
-  );
+      const rows = await getOnChainMilestones(onChainId, chain.milestoneCount);
+      const paidSum = rows
+        .filter((row) => row.status === "paid")
+        .reduce((sum, row) => sum + row.amount, 0n);
+      setPaid(paidSum);
+      setProject(chain);
+    } catch (err) {
+      setError(messageForEscrowError(err));
+    } finally {
+      setLoading(false);
+    }
+  }, [onChainId]);
 
   useEffect(() => {
-    fetchVaultState("initial");
-  }, [fetchVaultState]);
+    refresh();
+  }, [refresh]);
 
-  function handleRefresh() {
-    fetchVaultState("refresh");
+  if (typeof onChainId !== "number") {
+    return (
+      <p className="text-sm text-white/50">
+        Fund this project to see on-chain escrow balances.
+      </p>
+    );
   }
 
-  const cards: SummaryCard[] = vault
+  const cards = project
     ? [
-        {
-          label: "Total Deposited",
-          value: vault.totalDeposited,
-          accent: "text-white",
-        },
-        {
-          label: "Locked Balance",
-          value: vault.lockedBalance,
-          accent: "text-yellow-300",
-        },
-        {
-          label: "Available Balance",
-          value: vault.availableBalance,
-          accent: "text-emerald-300",
-        },
-        {
-          label: "Released Balance",
-          value: vault.releasedBalance,
-          accent: "text-vault-accent",
-        },
+        { label: "Total funded", value: formatDisplayAmount(project.total, decimals) },
+        { label: "Remaining", value: formatDisplayAmount(project.remaining, decimals) },
+        { label: "Paid out", value: formatDisplayAmount(paid, decimals) },
+        { label: "Status", value: project.cancelled ? "Cancelled" : "Active" },
       ]
     : [];
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-medium text-white/80">Vault Status</h2>
+        <h2 className="text-sm font-medium text-white/80">Escrow status</h2>
         <button
           type="button"
-          onClick={handleRefresh}
-          disabled={status === "loading" || isRefreshing}
-          className="rounded-md border border-white/20 px-3 py-1.5 text-xs font-medium text-white/80 transition-colors hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-40"
+          onClick={refresh}
+          disabled={loading}
+          className="rounded-md border border-white/20 px-3 py-1.5 text-xs font-medium text-white/80 hover:bg-white/5 disabled:opacity-40"
         >
-          {isRefreshing ? "Refreshing…" : "Refresh"}
+          {loading ? "Refreshing…" : "Refresh"}
         </button>
       </div>
 
-      {status === "loading" && (
+      {error && <p className="text-sm text-red-300">{error}</p>}
+
+      {project && (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <div
-              key={i}
-              className="h-20 animate-pulse rounded-lg border border-white/10 bg-vault-panel"
-            />
+          {cards.map((card) => (
+            <div key={card.label} className="rounded-lg border border-white/10 bg-vault-panel p-4">
+              <p className="text-xs text-white/50">{card.label}</p>
+              <p className="mt-1 text-xl font-semibold">{card.value}</p>
+            </div>
           ))}
         </div>
-      )}
-
-      {status === "error" && (
-        <div className="rounded-md border border-red-400/20 bg-red-400/10 p-4">
-          <p className="text-sm text-red-300">{errorMessage}</p>
-          <button
-            type="button"
-            onClick={handleRefresh}
-            className="mt-2 text-xs font-medium text-red-200 underline underline-offset-2 hover:text-red-100"
-          >
-            Try again
-          </button>
-        </div>
-      )}
-
-      {status === "success" && vault && (
-        <>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {cards.map((card) => (
-              <div
-                key={card.label}
-                className="rounded-lg border border-white/10 bg-vault-panel p-4"
-              >
-                <p className="text-xs text-white/50">{card.label}</p>
-                <p className={`mt-1 text-xl font-semibold ${card.accent}`}>
-                  {formatAmount(card.value)}
-                </p>
-              </div>
-            ))}
-          </div>
-
-          {vault.txHash && (
-            <div className="rounded-lg border border-white/10 bg-vault-panel p-3">
-              <p className="text-xs text-white/50">Latest transaction</p>
-              <p className="mt-1 break-all text-xs text-white/70">
-                {truncateTxHash(vault.txHash)}
-              </p>
-            </div>
-          )}
-        </>
       )}
     </div>
   );

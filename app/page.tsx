@@ -9,7 +9,7 @@ const steps = [
   {
     title: "Lock Funds",
     description:
-      "Deposit funds into FlowVault once so everyone knows the budget is secured.",
+      "Deposit funds into MileStack escrow once so the budget is secured.",
   },
   {
     title: "Approve Milestones",
@@ -19,7 +19,7 @@ const steps = [
   {
     title: "Release Payments",
     description:
-      "FlowVault releases funds transparently, creating trust for everyone involved.",
+      "The escrow contract pays the stored contributor when you approve a milestone.",
   },
 ];
 
@@ -40,7 +40,7 @@ export default function HomePage() {
 
       <section className="mx-auto flex max-w-7xl flex-col items-center px-6 py-24 text-center">
         <p className="mb-4 text-sm uppercase tracking-[0.3em] text-blue-400">
-          Powered by FlowVault
+          On-chain milestone escrow
         </p>
 
         <h2 className="max-w-4xl text-5xl font-bold leading-tight">
@@ -189,9 +189,7 @@ export default function HomePage() {
         <h3 className="text-2xl font-bold">MileStack</h3>
 
         <p className="mt-4 max-w-sm text-white/60 leading-7">
-          Milestone-based programmable escrow powered by
-          FlowVault, helping clients and contributors
-          collaborate with confidence.
+          Milestone-based programmable escrow on Stacks.
         </p>
       </div>
 
@@ -209,7 +207,7 @@ export default function HomePage() {
         <h4 className="font-semibold">Built With</h4>
 
         <p className="mt-4 text-white/60">
-          FlowVault programmable escrow
+          MileStack escrow on Stacks
         </p>
 
         <p className="mt-8 text-sm text-white/40">
