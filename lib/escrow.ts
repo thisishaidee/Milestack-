@@ -67,7 +67,7 @@ const STATUS_BY_CODE: Record<number, OnChainMilestoneStatus> = {
   2: "cancelled",
 };
 
-function requireEscrowContract(): { address: string; name: string; id: string } {
+function requireEscrowContract(): { address: string; name: string; id: `${string}.${string}` } {
   if (!ESCROW_CONTRACT_ADDRESS) {
     throw new EscrowError(
       "MileStack escrow is not configured. Set NEXT_PUBLIC_ESCROW_CONTRACT_ADDRESS after deploying milestack-escrow."
