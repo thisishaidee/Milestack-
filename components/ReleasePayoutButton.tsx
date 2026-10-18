@@ -57,7 +57,7 @@ export default function ReleasePayoutButton({
   const isClient =
     Boolean(walletAddress) &&
     Boolean(clientAddress) &&
-    walletAddress === clientAddress.trim();
+    walletAddress === clientAddress?.trim();
   const isDisabled =
     !funded ||
     typeof onChainId !== "number" ||
