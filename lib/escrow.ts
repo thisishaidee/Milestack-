@@ -115,7 +115,7 @@ function tokenPrincipalCv() {
   );
 }
 
-function tokenAssetId() {
+function tokenAssetId(): `${string}.${string}` {
   return `${USDCX_TOKEN_CONTRACT_ADDRESS}.${USDCX_TOKEN_CONTRACT_NAME}`;
 }
 
