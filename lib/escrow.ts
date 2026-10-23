@@ -44,16 +44,23 @@ export type TxPhase =
   | "failed";
 
 
-/** Next nonce for `address` from the node RPC (not the lagging indexer). */
+/**
+ * Next usable nonce for `address`, taking pending mempool transactions into account.
+ *
+ * /v2/accounts only returns the confirmed nonce, so a second transaction built while
+ * the first is still in the mempool would reuse the same nonce and the node rejects it
+ * ("bad nonce"). The Hiro /nonces endpoint returns `possible_next_nonce`, which is
+ * computed from executed and mempool transactions. Fetched fresh at every build.
+ */
 async function getNextNonce(address: string): Promise<number> {
-  const url = `${STACKS_API_URL}/v2/accounts/${encodeURIComponent(address)}?proof=0`;
-  const res = await fetch(url);
+  const url = `${STACKS_API_URL}/extended/v1/address/${encodeURIComponent(address)}/nonces`;
+  const res = await fetch(url, { cache: "no-store" });
   if (!res.ok) {
     throw new EscrowError(`Failed to fetch nonce for ${address} (${res.status}).`);
   }
-  const data = (await res.json()) as { nonce?: number | string };
-  const nonce = Number(data.nonce);
-  if (!Number.isFinite(nonce) || nonce < 0) {
+  const data = (await res.json()) as { possible_next_nonce?: number | string };
+  const nonce = Number(data.possible_next_nonce);
+  if (!Number.isInteger(nonce) || nonce < 0) {
     throw new EscrowError("The node returned an invalid nonce.");
   }
   return nonce;
