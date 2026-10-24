@@ -616,5 +616,9 @@ export function mergeChainIntoProject(
 
 export function messageForEscrowError(error: unknown): string {
   if (error instanceof EscrowError) return error.message;
-  return "Something went wrong talking to the MileStack escrow contract.";
+  const detail =
+    error instanceof Error ? error.message : typeof error === "string" ? error : JSON.stringify(error);
+  console.error("[escrow] read/write failed:", error);
+  if (error instanceof Error && error.stack) console.error(error.stack);
+  return `Escrow read failed: ${detail || "unknown error"}`;
 }
