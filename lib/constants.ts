@@ -35,9 +35,3 @@ export const ESCROW_ERRORS: Record<number, string> = {
   2110: "This milestone is not pending, so it cannot be paid.",
   2111: "The escrow does not have enough remaining funds for this payout.",
 };
-
-
-/** Leftover FlowVault identifiers. Not used by the MileStack escrow path. */
-export const FLOWVAULT_CONTRACT_ADDRESS =
-  "STD7QG84VQQ0C35SZM2EYTHZV4M8FQ0R7YNSQWPD";
-export const FLOWVAULT_CONTRACT_NAME = "flowvault-v2";
