@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import ProjectCard from "@/components/ProjectCard";
-import { getUserAddress, useWalletAddress } from "@/lib/stacks";
+import { useWalletAddress } from "@/lib/stacks";
 import { listProjects, saveProject } from "@/lib/projectStore";
 import {
   getClientProjectCount,
