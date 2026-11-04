@@ -6,6 +6,7 @@ import {
   Pc,
   fetchCallReadOnlyFunction,
   cvToJSON,
+  postConditionToHex,
 } from "@stacks/transactions";
 import { getUserAddress } from "@/lib/stacks";
 import {
@@ -42,7 +43,6 @@ export type TxPhase =
   | "confirming"
   | "confirmed"
   | "failed";
-
 
 export interface OnChainProject {
   id: number;
@@ -120,24 +120,16 @@ function tokenAssetId(): `${string}.${string}` {
   return `${USDCX_TOKEN_CONTRACT_ADDRESS}.${USDCX_TOKEN_CONTRACT_NAME}`;
 }
 
-function tokenPostCondition(sender: string, amount: bigint) {
-  return Pc.principal(sender).willSendEq(amount).ft(tokenAssetId(), USDCX_TOKEN_ASSET_NAME);
+// Xverse expects serialized post-conditions (hex strings), not SDK Pc objects.
+// Keep the same explicit transfer limits while making the wallet payload compatible.
+function tokenPostCondition(sender: string, amount: bigint): string {
+  return postConditionToHex(
+    Pc.principal(sender).willSendEq(amount).ft(tokenAssetId(), USDCX_TOKEN_ASSET_NAME)
+  );
 }
 
 function jsonValue(cv: unknown): any {
   return cvToJSON(cv as never);
-}
-
-function unwrapOk(json: any): any {
-  if (json?.success === false) {
-    const code = Number(json?.value?.value ?? json?.value);
-    throw new EscrowError(
-      ESCROW_ERRORS[code] ?? `Escrow call failed (${code || "unknown"}).`,
-      undefined,
-      Number.isFinite(code) ? code : undefined
-    );
-  }
-  return json?.value ?? json;
 }
 
 function readUint(field: any): bigint {
@@ -304,7 +296,7 @@ async function waitForTx(txid: string): Promise<{ status: string; repr?: string 
         }
         if (status.startsWith("abort") || status === "rejected") {
           const repr = String(data?.tx_result?.repr ?? "");
-          const match = repr.match(/u(\d+)/);
+          const match = repr.match(/u(\\d+)/);
           const code = match ? Number(match[1]) : undefined;
           throw new EscrowError(
             (code !== undefined && ESCROW_ERRORS[code]) ||
@@ -327,7 +319,7 @@ async function waitForTx(txid: string): Promise<{ status: string; repr?: string 
 
 function parseOkUint(repr?: string): number | null {
   if (!repr) return null;
-  const match = repr.match(/\(ok u(\d+)\)/i);
+  const match = repr.match(/\\(ok u(\\d+)\\)/i);
   return match ? Number(match[1]) : null;
 }
 
