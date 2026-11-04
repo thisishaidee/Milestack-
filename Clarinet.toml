@@ -1,0 +1,16 @@
+[project]
+name = "milestack"
+description = "MileStack milestone escrow on Stacks"
+authors = []
+telemetry = false
+cache_dir = ".clarinet"
+
+[contracts.sip-010-trait]
+path = "contracts/sip-010-trait.clar"
+clarity_version = 3
+epoch = "3.0"
+
+[contracts.milestack-escrow]
+path = "contracts/milestack-escrow.clar"
+clarity_version = 3
+epoch = "3.0"
