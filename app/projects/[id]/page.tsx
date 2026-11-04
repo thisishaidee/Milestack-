@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import MilestoneList from "@/components/MilestoneList";
 import DepositForm from "@/components/DepositForm";
-import VaultStatus from "@/components/VaultStatus";
+import EscrowStatus from "@/components/EscrowStatus";
 import CancelRemainingButton from "@/components/CancelRemainingButton";
 import { getProject, saveProject, deleteProject } from "@/lib/projectStore";
 import {
@@ -149,7 +149,7 @@ export default function ProjectDetailPage({ params }: ProjectDetailPageProps) {
 
       <section>
         <h2 className="mb-3 text-lg font-medium">On-chain escrow</h2>
-        <VaultStatus onChainId={project.onChainId} />
+        <EscrowStatus onChainId={project.onChainId} />
       </section>
 
       {funded && !project.cancelled && (
