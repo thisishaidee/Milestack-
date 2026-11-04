@@ -29,6 +29,10 @@ export function toBaseUnits(displayAmount: number | string, decimals: number): b
   return BigInt(combined);
 }
 
+export function sumBaseUnits(values: Array<number | string>, decimals: number): bigint {
+  return values.reduce((sum, value) => sum + toBaseUnits(value, decimals), 0n);
+}
+
 export function fromBaseUnits(amount: bigint | number | string, decimals: number): string {
   const value = BigInt(amount);
   if (decimals === 0) return value.toString();
