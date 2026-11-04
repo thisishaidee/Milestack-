@@ -46,24 +46,29 @@ export default function ProjectsPage() {
         const { ids } = await getClientProjectIds(clientAddress, startIndex, Math.min(20, total || 1));
         const decimals = await getUsdcxDecimals();
 
-        const recovered = await Promise.all(
-          ids.map(async (onChainId) => {
-            const chain = await getOnChainProject(onChainId);
-            if (!chain || chain.client !== clientAddress) return null;
+        const recovered: (Project | null)[] = [];
+        for (let start = 0; start < ids.length; start += 5) {
+          const batchIds = ids.slice(start, start + 5);
+          const batch = await Promise.all(
+            batchIds.map(async (onChainId) => {
+              const chain = await getOnChainProject(onChainId);
+              if (!chain || chain.client !== clientAddress) return null;
 
-            const local = localForWallet.find(
-              (project) => project.onChainId === onChainId
-            ) ?? {
-              id: `recovered-${onChainId}`,
-              name: `Recovered project #${onChainId}`,
-              totalBudget: 0,
-              clientWallet: clientAddress,
-              milestones: [],
-            };
+              const local = localForWallet.find(
+                (project) => project.onChainId === onChainId
+              ) ?? {
+                id: `recovered-${onChainId}`,
+                name: `Recovered project #${onChainId}`,
+                totalBudget: 0,
+                clientWallet: clientAddress,
+                milestones: [],
+              };
 
-            return mergeChainIntoProject(local, chain, [], decimals);
-          })
-        );
+              return mergeChainIntoProject(local, chain, [], decimals);
+            })
+          );
+          recovered.push(...batch);
+        }
 
         if (!active) return;
 
