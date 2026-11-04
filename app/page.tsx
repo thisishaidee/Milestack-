@@ -1,224 +1,58 @@
 import Link from "next/link";
 
-const steps = [
-  {
-    title: "Create Project",
-    description:
-      "Set up your project, invite contributors, and define milestone payments.",
-  },
-  {
-    title: "Lock Funds",
-    description:
-      "Deposit funds into MileStack escrow once so the budget is secured.",
-  },
-  {
-    title: "Approve Milestones",
-    description:
-      "Review completed work and approve milestones whenever deliverables are met.",
-  },
-  {
-    title: "Release Payments",
-    description:
-      "The escrow contract pays the stored contributor when you approve a milestone.",
-  },
+const workflow = [
+  ["01", "Create a project", "Set the budget and define who gets paid for each milestone."],
+  ["02", "Fund escrow", "Move USDCx into the MileStack contract with your wallet."],
+  ["03", "Approve the work", "Review each deliverable before authorizing its payment."],
+  ["04", "Settle or refund", "Pay approved milestones or return the unpaid balance."],
 ];
 
 export default function HomePage() {
   return (
-    <main className="min-h-screen bg-black text-white">
- <nav className="mx-auto flex max-w-7xl items-center justify-between px-6 py-6">
-  <Link href="/" className="text-2xl font-black tracking-tight">
-    MileStack
-  </Link>  
-        <Link
-          href="/projects"
-          className="rounded-lg border border-white/20 px-4 py-2 text-sm transition hover:border-white/40"
-        >
-          Projects
-        </Link>
-      </nav>
-
-      <section className="mx-auto flex max-w-7xl flex-col items-center px-6 py-24 text-center">
-        <p className="mb-4 text-sm uppercase tracking-[0.3em] text-blue-400">
-          On-chain milestone escrow
-        </p>
-
-        <h2 className="max-w-4xl text-5xl font-bold leading-tight">
-          Secure milestone payments for modern teams.
-        </h2>
-
-        <p className="mt-6 max-w-2xl text-lg text-white/70">
-          Lock project funds once, approve milestones with confidence, and
-          release payments transparently through programmable escrow.
-        </p>
-
-        <div className="mt-10 flex gap-4">
-          <Link
-            href="/projects/new"
-            className="rounded-lg bg-blue-600 px-6 py-3 font-medium transition hover:bg-blue-500"
-          >
-            Create Project
-          </Link>
-
-          <Link
-            href="/projects"
-            className="rounded-lg border border-white/20 px-6 py-3 transition hover:border-white/40"
-          >
-            View Projects
-          </Link>
+    <main className="min-h-screen bg-vault-bg text-white">
+      <section className="mx-auto max-w-6xl px-5 pb-20 pt-16 sm:px-8 sm:pt-24">
+        <div className="max-w-3xl">
+          <p className="text-xs font-semibold uppercase tracking-[0.28em] text-blue-400">
+            Milestone escrow on Stacks
+          </p>
+          <h1 className="mt-6 text-4xl font-semibold leading-tight tracking-tight sm:text-6xl">
+            Work gets done.
+            <span className="block text-white/50">Payments follow proof.</span>
+          </h1>
+          <p className="mt-6 max-w-2xl text-base leading-7 text-white/65 sm:text-lg">
+            MileStack helps teams secure project budgets, approve completed milestones,
+            and release contributor payments through a transparent smart contract.
+          </p>
+          <div className="mt-9 flex flex-wrap gap-3">
+            <Link href="/projects/new" className="rounded-lg bg-blue-600 px-5 py-3 text-sm font-semibold transition hover:bg-blue-500">
+              Create a project
+            </Link>
+            <Link href="/projects" className="rounded-lg border border-white/15 px-5 py-3 text-sm font-semibold text-white/80 transition hover:border-white/35">
+              View projects
+            </Link>
+          </div>
+        </div>
+        <div className="mt-16 grid gap-3 border-t border-white/10 pt-6 text-sm sm:grid-cols-3">
+          <div><p className="text-white/40">Network</p><p className="mt-1 font-medium">Stacks Testnet</p></div>
+          <div><p className="text-white/40">Escrow asset</p><p className="mt-1 font-medium">USDCx</p></div>
+          <div><p className="text-white/40">Wallet</p><p className="mt-1 font-medium">Xverse via Stacks Connect</p></div>
         </div>
       </section>
-
-  <section className="mx-auto max-w-7xl px-6 pb-24">
-  <div className="grid grid-cols-1 gap-6 rounded-2xl border border-white/10 bg-white/5 p-10 text-center sm:grid-cols-3">
-
-  <div>
-  <h3 className="text-4xl font-bold text-blue-400">4</h3>
-  <p className="mt-2 text-white/60">Milestone Workflow</p>
-</div>
-
-<div>
-  <h3 className="text-4xl font-bold text-blue-400">100%</h3>
-  <p className="mt-2 text-white/60">On-chain Escrow</p>
-</div>
-
-<div>
-  <h3 className="text-4xl font-bold text-blue-400">24/7</h3>
-  <p className="mt-2 text-white/60">Transparent Payments</p>
-</div>    
-</div>
-</section>   
-
-      <section className="mx-auto max-w-7xl px-6 pb-24">
-        <div className="text-center">
-          <p className="text-sm uppercase tracking-[0.3em] text-blue-400">
-            How It Works
-          </p>
-
-          <h3 className="mt-4 text-4xl font-bold">
-            A simple escrow workflow.
-          </h3>
-
-          <p className="mx-auto mt-4 max-w-2xl text-white/60">
-            MileStack helps clients and contributors collaborate confidently by
-            combining milestone approvals with programmable escrow.
-          </p>
-        </div>
-
-        <div className="mt-16 grid gap-6 md:grid-cols-2 xl:grid-cols-4">
-          {steps.map((step, index) => (
-            <div
-              key={step.title}
-              className="rounded-2xl border border-white/10 bg-white/5 p-6"
-            >
-              <div className="mb-6 flex h-10 w-10 items-center justify-center rounded-full bg-blue-600 font-semibold">
-                {index + 1}
-              </div>
-
-              <h4 className="text-xl font-semibold">
-                {step.title}
-              </h4>
-
-              <p className="mt-3 text-sm leading-7 text-white/60">
-                {step.description}
-              </p>
-            </div>
-          ))}
+      <section className="border-t border-white/10 bg-white/[0.02]">
+        <div className="mx-auto max-w-6xl px-5 py-16 sm:px-8">
+          <p className="text-xs font-semibold uppercase tracking-[0.28em] text-blue-400">The workflow</p>
+          <h2 className="mt-3 text-2xl font-semibold sm:text-3xl">A clear path from agreement to payment.</h2>
+          <div className="mt-9 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {workflow.map(([number, title, description]) => (
+              <article key={number} className="rounded-xl border border-white/10 bg-white/[0.03] p-5">
+                <p className="text-sm text-blue-400">{number}</p>
+                <h3 className="mt-5 font-semibold">{title}</h3>
+                <p className="mt-2 text-sm leading-6 text-white/55">{description}</p>
+              </article>
+            ))}
+          </div>
         </div>
       </section>
-<section className="mx-auto max-w-7xl px-6 pb-24">
-  <div className="text-center">
-    <p className="text-sm uppercase tracking-[0.3em] text-blue-400">
-      Why MileStack
-    </p>
-
-    <h3 className="mt-4 text-4xl font-bold">
-      Built for modern teams.
-    </h3>
-
-    <p className="mx-auto mt-4 max-w-2xl text-white/60">
-      MileStack combines programmable escrow with milestone-based collaboration,
-      helping clients and contributors work together with confidence.
-    </p>
-  </div>
-
-  <div className="mt-16 grid gap-6 md:grid-cols-3">
-
-    <div className="rounded-2xl border border-white/10 bg-white/5 p-8">
-      <h4 className="text-xl font-semibold">
-        Programmable Escrow
-      </h4>
-
-      <p className="mt-4 leading-7 text-white/60">
-        Funds remain securely locked until milestone conditions are approved,
-        protecting both clients and contributors.
-      </p>
-    </div>
-
-    <div className="rounded-2xl border border-white/10 bg-white/5 p-8">
-      <h4 className="text-xl font-semibold">
-        Transparent Workflow
-      </h4>
-
-      <p className="mt-4 leading-7 text-white/60">
-        Every milestone approval and payment is recorded on-chain, making
-        project progress easy to verify.
-      </p>
-    </div>
-
-    <div className="rounded-2xl border border-white/10 bg-white/5 p-8">
-      <h4 className="text-xl font-semibold">
-        Fast Settlement
-      </h4>
-
-      <p className="mt-4 leading-7 text-white/60">
-        Release milestone payments instantly once work is completed and
-        approved, reducing delays and building trust.
-      </p>
-    </div>
-
-  </div>
-</section>
-
-   <section className="border-t border-white/10">
-  <div className="mx-auto max-w-7xl px-6 py-16">
-
-    <div className="grid gap-10 md:grid-cols-3">
-
-      <div>
-        <h3 className="text-2xl font-bold">MileStack</h3>
-
-        <p className="mt-4 max-w-sm text-white/60 leading-7">
-          Milestone-based programmable escrow on Stacks.
-        </p>
-      </div>
-
-      <div>
-        <h4 className="font-semibold">Product</h4>
-
-        <ul className="mt-4 space-y-3 text-white/60">
-          <li>Create Project</li>
-          <li>Projects</li>
-          <li>Milestones</li>
-        </ul>
-      </div>
-
-      <div>
-        <h4 className="font-semibold">Built With</h4>
-
-        <p className="mt-4 text-white/60">
-          MileStack escrow on Stacks
-        </p>
-
-        <p className="mt-8 text-sm text-white/40">
-          © 2026 MileStack. All rights reserved.
-        </p>
-      </div>
-
-    </div>
-
-  </div>
-</section>
     </main>
   );
 }
