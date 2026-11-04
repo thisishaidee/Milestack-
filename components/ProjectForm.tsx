@@ -94,8 +94,6 @@ export default function ProjectForm({
       totalBudget: Number(totalBudget),
       clientWallet: clientWallet.trim(),
       milestones: placeholderMilestones,
-      vaultBalance: 0,
-      releasedBalance: 0,
       createdAt: new Date().toISOString(),
     };
 
