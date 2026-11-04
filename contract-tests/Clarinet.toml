@@ -1,0 +1,25 @@
+[project]
+name = "milestack-contract-tests"
+description = "Simnet-only tests for MileStack escrow"
+authors = []
+telemetry = false
+
+[contracts.sip-010-trait]
+path = "../contracts/sip-010-trait.clar"
+clarity_version = 3
+epoch = "3.0"
+
+[contracts.usdcx]
+path = "../contracts/mock-usdcx.clar"
+clarity_version = 3
+epoch = "3.0"
+
+[contracts.fake-token]
+path = "../contracts/mock-usdcx.clar"
+clarity_version = 3
+epoch = "3.0"
+
+[contracts.milestack-escrow]
+path = "../contracts/milestack-escrow.clar"
+clarity_version = 3
+epoch = "3.0"
