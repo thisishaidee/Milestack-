@@ -42,11 +42,12 @@ export default function ProjectDetailPage({ params }: ProjectDetailPageProps) {
 
     setRemainingLabel(null);
     setBalanceError(null);
+    setProject({ ...current, chainDetailsLoaded: false });
     try {
       const decimals = await getUsdcxDecimals();
       const chain = await getOnChainProject(current.onChainId);
       if (!chain) {
-        setProject(current);
+        setProject({ ...current, chainDetailsLoaded: false });
         setBalanceError("The escrow project could not be found on-chain. Retry the balance check.");
         return;
       }
@@ -57,7 +58,7 @@ export default function ProjectDetailPage({ params }: ProjectDetailPageProps) {
       persist(merged);
     } catch (error) {
       console.error("[project] failed to refresh chain state", error);
-      setProject(current);
+      setProject({ ...current, chainDetailsLoaded: false });
       setBalanceError(
         error instanceof Error
           ? `Could not load the current escrow balance: ${error.message}`
