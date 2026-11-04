@@ -23,7 +23,8 @@ interface ProjectDetailPageProps {
 export default function ProjectDetailPage({ params }: ProjectDetailPageProps) {
   const router = useRouter();
   const [project, setProject] = useState<Project | null | undefined>(undefined);
-  const [remainingLabel, setRemainingLabel] = useState("0");
+  const [remainingLabel, setRemainingLabel] = useState<string | null>(null);
+  const [balanceError, setBalanceError] = useState<string | null>(null);
 
   const persist = useCallback((next: Project) => {
     saveProject(next);
@@ -33,23 +34,35 @@ export default function ProjectDetailPage({ params }: ProjectDetailPageProps) {
   const refreshFromChain = useCallback(async (base?: Project | null) => {
     const current = base ?? (typeof window !== "undefined" ? getProject(params.id) : null);
     if (!current || typeof current.onChainId !== "number") {
+      setRemainingLabel(null);
+      setBalanceError(null);
       if (current) setProject(current);
       return;
     }
+
+    setRemainingLabel(null);
+    setBalanceError(null);
     try {
       const decimals = await getUsdcxDecimals();
       const chain = await getOnChainProject(current.onChainId);
       if (!chain) {
         setProject(current);
+        setBalanceError("The escrow project could not be found on-chain. Retry the balance check.");
         return;
       }
       const rows = await getOnChainMilestones(current.onChainId, chain.milestoneCount);
       const merged = mergeChainIntoProject(current, chain, rows, decimals);
       setRemainingLabel(formatDisplayAmount(chain.remaining, decimals));
+      setBalanceError(null);
       persist(merged);
     } catch (error) {
       console.error("[project] failed to refresh chain state", error);
       setProject(current);
+      setBalanceError(
+        error instanceof Error
+          ? `Could not load the current escrow balance: ${error.message}`
+          : "Could not load the current escrow balance. Retry the check."
+      );
     }
   }, [params.id, persist]);
 
@@ -155,12 +168,29 @@ export default function ProjectDetailPage({ params }: ProjectDetailPageProps) {
       {funded && !project.cancelled && (
         <section>
           <h2 className="mb-3 text-lg font-medium">Refund remaining</h2>
-          <CancelRemainingButton
-            onChainId={project.onChainId!}
-            clientAddress={project.clientWallet}
-            remainingLabel={remainingLabel}
-            onCancelled={handleCancelled}
-          />
+          {remainingLabel !== null ? (
+            <CancelRemainingButton
+              onChainId={project.onChainId!}
+              clientAddress={project.clientWallet}
+              remainingLabel={remainingLabel}
+              onCancelled={handleCancelled}
+            />
+          ) : (
+            <div className="space-y-2">
+              <p className="text-sm text-white/50">
+                {balanceError ?? "Loading the current escrow balance…"}
+              </p>
+              {balanceError && (
+                <button
+                  type="button"
+                  onClick={() => void refreshFromChain(project)}
+                  className="rounded-md border border-white/20 px-3 py-2 text-xs font-medium text-white/80 hover:bg-white/5"
+                >
+                  Retry balance check
+                </button>
+              )}
+            </div>
+          )}
         </section>
       )}
     </div>
