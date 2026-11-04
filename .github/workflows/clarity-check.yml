@@ -19,4 +19,4 @@ jobs:
       - name: Validate Clarity contracts
         run: clarinet check
       - name: Check Clarity formatting
-        run: clarinet fmt --check
+        run: clarinet format --check
