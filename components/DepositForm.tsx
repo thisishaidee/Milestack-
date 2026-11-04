@@ -11,6 +11,7 @@ import {
   type TxPhase,
 } from "@/lib/escrow";
 import { ESCROW_CONTRACT_ADDRESS, MAX_MILESTONES } from "@/lib/constants";
+import { sumBaseUnits, toBaseUnits, formatDisplayAmount } from "@/lib/units";
 
 interface DepositFormProps {
   project: Project;
@@ -40,12 +41,19 @@ function validateMilestones(project: Project): string | null {
     }
   }
 
-  const sum = project.milestones.reduce(
-    (total, milestone) => total + (Number(milestone.amount) || 0),
-    0
-  );
-  if (sum !== project.totalBudget) {
-    return `Milestone amounts total ${sum.toLocaleString()}, which does not match the project budget of ${project.totalBudget.toLocaleString()}.`;
+  let milestoneTotal: bigint;
+  let projectBudget: bigint;
+  try {
+    milestoneTotal = sumBaseUnits(
+      project.milestones.map((milestone) => milestone.amount),
+      6
+    );
+    projectBudget = toBaseUnits(project.totalBudget, 6);
+  } catch {
+    return "Amounts must use no more than 6 decimal places.";
+  }
+  if (milestoneTotal !== projectBudget) {
+    return `Milestone amounts total ${formatDisplayAmount(milestoneTotal, 6)} USDCx, which does not match the project budget of ${formatDisplayAmount(projectBudget, 6)} USDCx.`;
   }
 
   return null;
