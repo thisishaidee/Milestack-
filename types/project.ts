@@ -11,6 +11,4 @@ export interface Project {
   depositTxid?: string;
   cancelTxid?: string;
   cancelled?: boolean;
-  vaultBalance?: number;
-  releasedBalance?: number;
 }
