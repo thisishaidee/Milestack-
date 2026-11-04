@@ -586,29 +586,43 @@ export function mergeChainIntoProject(
   chainMilestones: OnChainMilestone[],
   decimals: number
 ): Project {
-  const milestones: Milestone[] = local.milestones.map((localMilestone, index) => {
-    const chainRow = chainMilestones.find((row) => row.index === index);
-    if (!chainRow) {
-      return { ...localMilestone, onChainIndex: index };
+  const milestones: Milestone[] = Array.from(
+    { length: chain.milestoneCount },
+    (_, index) => {
+      const localMilestone =
+        local.milestones.find((milestone, localIndex) =>
+          (milestone.onChainIndex ?? localIndex) === index
+        ) ?? {
+          id: `chain-${chain.id}-${index}`,
+          title: `Milestone ${index + 1}`,
+          amount: 0,
+          contributorWallet: "",
+          status: "pending" as const,
+        };
+      const chainRow = chainMilestones.find((row) => row.index === index);
+
+      if (!chainRow) {
+        return { ...localMilestone, onChainIndex: index };
+      }
+
+      const chainStatus =
+        chainRow.status === "paid"
+          ? "paid"
+          : chainRow.status === "cancelled"
+          ? "cancelled"
+          : localMilestone.status === "completed"
+          ? "completed"
+          : "pending";
+
+      return {
+        ...localMilestone,
+        onChainIndex: index,
+        contributorWallet: chainRow.contributor,
+        amount: Number(fromBaseUnits(chainRow.amount, decimals)),
+        status: chainStatus,
+      };
     }
-
-    const chainStatus =
-      chainRow.status === "paid"
-        ? "paid"
-        : chainRow.status === "cancelled"
-        ? "cancelled"
-        : localMilestone.status === "completed"
-        ? "completed"
-        : "pending";
-
-    return {
-      ...localMilestone,
-      onChainIndex: index,
-      contributorWallet: chainRow.contributor,
-      amount: Number(fromBaseUnits(chainRow.amount, decimals)),
-      status: chainStatus,
-    };
-  });
+  );
 
   return {
     ...local,
