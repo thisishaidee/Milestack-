@@ -8,7 +8,7 @@ import {
   cvToJSON,
   postConditionToHex,
 } from "@stacks/transactions";
-import { getUserAddress } from "@/lib/stacks";
+import { getUserAddress, isTestnetAddress } from "@/lib/stacks";
 import {
   STACKS_NETWORK,
   STACKS_API_URL,
@@ -18,7 +18,6 @@ import {
   ESCROW_CONTRACT_ADDRESS,
   ESCROW_CONTRACT_NAME,
   ESCROW_ERRORS,
-  TESTNET_ADDRESS_PREFIX,
   MAX_MILESTONES,
 } from "@/lib/constants";
 import { toBaseUnits, fromBaseUnits } from "@/lib/units";
@@ -106,7 +105,7 @@ async function assertCallerIsProjectClient(
 }
 
 export function isTestnetPrincipal(address: string): boolean {
-  return address.trim().startsWith(TESTNET_ADDRESS_PREFIX) && address.length > 3;
+  return isTestnetAddress(address);
 }
 
 function tokenPrincipalCv() {
