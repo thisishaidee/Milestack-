@@ -64,6 +64,46 @@ describe("MileStack escrow", () => {
     expect(balance(deployer + ".milestack-escrow").result).toBeOk(Cl.uint(100));
   });
 
+  it("indexes funded projects by client for recovery", () => {
+    expect(mintClient(30).result).toBeOk(Cl.bool(true));
+    expect(createProject(entries([
+      { contributor: contributorA, amount: 10 },
+    ])).result).toBeOk(Cl.uint(1));
+    expect(createProject(entries([
+      { contributor: contributorB, amount: 20 },
+    ])).result).toBeOk(Cl.uint(2));
+
+    const count = simnet.callReadOnlyFn(
+      "milestack-escrow",
+      "get-client-project-count",
+      [Cl.principal(client)],
+      client
+    );
+    const firstId = simnet.callReadOnlyFn(
+      "milestack-escrow",
+      "get-client-project-id",
+      [Cl.principal(client), Cl.uint(0)],
+      client
+    );
+    const secondId = simnet.callReadOnlyFn(
+      "milestack-escrow",
+      "get-client-project-id",
+      [Cl.principal(client), Cl.uint(1)],
+      client
+    );
+    const missingId = simnet.callReadOnlyFn(
+      "milestack-escrow",
+      "get-client-project-id",
+      [Cl.principal(client), Cl.uint(2)],
+      client
+    );
+
+    expect(count.result).toBeOk(Cl.uint(2));
+    expect(firstId.result).toBeSome(Cl.uint(1));
+    expect(secondId.result).toBeSome(Cl.uint(2));
+    expect(JSON.stringify(missingId.result)).toContain('"type":"none"');
+  });
+
   it("rejects empty schedules, zero amounts, and self-payment", () => {
     expect(createProject(entries([])).result).toBeErr(Cl.uint(2101));
     expect(createProject(entries([{ contributor: contributorA, amount: 0 }])).result)
