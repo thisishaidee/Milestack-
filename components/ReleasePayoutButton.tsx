@@ -15,6 +15,7 @@ interface ReleasePayoutButtonProps {
   onChainId?: number;
   clientAddress?: string;
   funded: boolean;
+  chainDetailsLoaded: boolean;
   onPaid: (txid: string) => void;
 }
 
@@ -42,6 +43,7 @@ export default function ReleasePayoutButton({
   onChainId,
   clientAddress,
   funded,
+  chainDetailsLoaded,
   onPaid,
 }: ReleasePayoutButtonProps) {
   const walletAddress = useWalletAddress();
@@ -60,6 +62,9 @@ export default function ReleasePayoutButton({
     walletAddress === clientAddress?.trim();
   const isDisabled =
     !funded ||
+    !chainDetailsLoaded ||
+    milestone.amount <= 0 ||
+    !milestone.contributorWallet.trim() ||
     typeof onChainId !== "number" ||
     typeof index !== "number" ||
     !isCompleted ||
@@ -103,6 +108,12 @@ export default function ReleasePayoutButton({
 
       {!funded && (
         <p className="text-[11px] text-white/40">Fund escrow before paying a milestone.</p>
+      )}
+
+      {funded && !chainDetailsLoaded && (
+        <p className="text-[11px] text-amber-200/80">
+          Waiting for verified milestone details from the blockchain.
+        </p>
       )}
 
       {funded && !isClient && !alreadyPaid && !cancelled && (
