@@ -640,6 +640,7 @@ export function mergeChainIntoProject(
     clientWallet: chain.client,
     totalBudget: Number(fromBaseUnits(chain.total, decimals)),
     cancelled: chain.cancelled,
+    chainDetailsLoaded: chainMilestones.length === chain.milestoneCount,
     milestones,
   };
 }
