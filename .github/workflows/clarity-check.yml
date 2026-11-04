@@ -25,7 +25,16 @@ jobs:
           cp milestack-ci-template/settings/Devnet.toml "$GITHUB_WORKSPACE/settings/Devnet.toml"
       - name: Validate Clarity contracts
         run: clarinet check
-      - name: Show canonical Clarity formatting changes
+      - name: Enforce canonical Clarity formatting
         run: |
+          before="$(sha256sum contracts/*.clar)"
           clarinet format --in-place
-          git diff -- contracts
+          after="$(sha256sum contracts/*.clar)"
+          if [ "$before" != "$after" ]; then
+            echo "Clarity formatting changes are required. Canonical formatter output follows:"
+            for file in contracts/*.clar; do
+              echo "===== $file ====="
+              cat "$file"
+            done
+            exit 1
+          fi
