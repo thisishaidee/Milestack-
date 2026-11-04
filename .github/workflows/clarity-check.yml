@@ -23,8 +23,14 @@ jobs:
           clarinet new milestack-ci-template
           mkdir -p "$GITHUB_WORKSPACE/settings"
           cp milestack-ci-template/settings/Devnet.toml "$GITHUB_WORKSPACE/settings/Devnet.toml"
-      - name: Validate Clarity contracts
+      - name: Validate production Clarity contracts
         run: clarinet check
+      - name: Validate simnet test contracts
+        run: |
+          mkdir -p contract-tests/settings
+          cp settings/Devnet.toml contract-tests/settings/Devnet.toml
+          cd contract-tests
+          clarinet check
       - name: Enforce canonical Clarity formatting
         run: |
           before="$(sha256sum contracts/*.clar)"
