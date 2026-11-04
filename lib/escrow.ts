@@ -273,10 +273,21 @@ export async function getOnChainMilestones(
   count: number
 ): Promise<OnChainMilestone[]> {
   const rows: OnChainMilestone[] = [];
-  for (let i = 0; i < count; i++) {
-    const row = await getOnChainMilestone(id, i);
-    if (row) rows.push(row);
+  const batchSize = 5;
+
+  // Read in small parallel batches. A fully sequential loop makes a
+  // 20-milestone project wait on 20 separate RPC round trips, while
+  // launching all 20 at once can trigger provider rate limits.
+  for (let start = 0; start < count; start += batchSize) {
+    const end = Math.min(start + batchSize, count);
+    const batch = await Promise.all(
+      Array.from({ length: end - start }, (_, offset) =>
+        getOnChainMilestone(id, start + offset)
+      )
+    );
+    rows.push(...batch.filter((row): row is OnChainMilestone => row !== null));
   }
+
   return rows;
 }
 
