@@ -121,7 +121,7 @@
       remaining: total,
       milestone-count: count,
       cancelled: false,
-      created-at-block: block-height
+      created-at-block: stacks-block-height
     })
     (fold write-entry entries { id: id, index: u0 })
     (var-set next-id (+ id u1))
