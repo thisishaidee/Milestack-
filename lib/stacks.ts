@@ -113,7 +113,8 @@ export function getUserAddress(): string | null {
       return null;
     }
 
-    return readSession()?.stxAddress ?? null;
+    const address = readSession()?.stxAddress ?? null;
+    return address && isTestnetAddress(address) ? address : null;
   } catch (error) {
     console.error("[stacks] Failed to read connected address:", error);
     return null;
