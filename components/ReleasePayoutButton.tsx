@@ -122,7 +122,7 @@ export default function ReleasePayoutButton({
         </p>
       )}
 
-      {funded && isClient && !isCompleted && !alreadyPaid && !cancelled && (
+      {funded && chainDetailsLoaded && isClient && !isCompleted && !alreadyPaid && !cancelled && (
         <p className="text-[11px] text-white/40">
           Mark this milestone completed to approve payout.
         </p>
