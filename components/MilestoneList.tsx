@@ -32,9 +32,15 @@ export default function MilestoneList({ project, onUpdate, onRefreshChain }: Mil
   const remaining = project.totalBudget - runningTotal;
 
   function handleMilestoneChange(id: string, updates: Partial<Milestone>) {
-    setMilestones((prev) =>
-      prev.map((m) => (m.id === id ? { ...m, ...updates, id: m.id } : m))
+    const next = milestones.map((milestone) =>
+      milestone.id === id
+        ? { ...milestone, ...updates, id: milestone.id }
+        : milestone
     );
+    setMilestones(next);
+    if (funded) {
+      onUpdate({ ...project, milestones: next });
+    }
     setSavedAt(null);
   }
 
