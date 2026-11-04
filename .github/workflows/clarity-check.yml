@@ -33,14 +33,9 @@ jobs:
           clarinet check
       - name: Enforce canonical Clarity formatting
         run: |
-          before="$(sha256sum contracts/*.clar)"
           clarinet format --in-place
-          after="$(sha256sum contracts/*.clar)"
-          if [ "$before" != "$after" ]; then
-            echo "Clarity formatting changes are required. Canonical formatter output follows:"
-            for file in contracts/*.clar; do
-              echo "===== $file ====="
-              cat "$file"
-            done
+          if ! git diff --quiet -- contracts/*.clar; then
+            echo "Clarity formatting changes are required. Canonical formatter diff follows:"
+            git diff -- contracts/*.clar
             exit 1
           fi
