@@ -1,3 +1,4 @@
+
 ;; MileStack v1 escrow.
 ;; Source of truth for project funds, milestones, contributors, payments, refunds.
 
@@ -54,7 +55,10 @@
   uint
 )
 
-(define-map client-project-counts principal uint)
+(define-map client-project-counts
+  principal
+  uint
+)
 
 (define-constant INDEX-RANGE (list u0 u1 u2 u3 u4 u5 u6 u7 u8 u9 u10 u11 u12 u13 u14 u15 u16 u17 u18 u19))
 
@@ -171,7 +175,12 @@
       cancelled: false,
       created-at-block: stacks-block-height,
     })
-    (map-set client-projects { client: client, index: client-index } id)
+    (map-set client-projects {
+      client: client,
+      index: client-index,
+    }
+      id
+    )
     (map-set client-project-counts client (+ client-index u1))
     (fold write-entry entries {
       id: id,
