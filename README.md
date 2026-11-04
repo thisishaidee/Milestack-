@@ -36,6 +36,21 @@ npm run dev
 
 Keep `NEXT_PUBLIC_ESCROW_CONTRACT_ADDRESS` empty until the fresh contract has been deployed and verified.
 
+
+## Contract behavior tests
+
+The isolated `contract-tests` workspace runs the escrow source against Clarinet simnet with a mock SIP-010 token deployed under the Testnet USDCx contract name. This lets the escrow's fixed token-principal check remain unchanged while tests exercise funding, authorization, payouts, and refunds.
+
+The mock token is registered only in `contract-tests/Clarinet.toml`. It is not part of the production Clarinet manifest and must never be deployed to Testnet.
+
+Run the suite with Node.js 22 or newer:
+
+```bash
+cd contract-tests
+npm install
+npm test
+```
+
 ## Required verification before deployment
 
 - Clarinet project check and contract tests.
