@@ -435,6 +435,16 @@ export async function createAndFund(
   }));
   const total = entries.reduce((sum, entry) => sum + entry.amount, 0n);
 
+  let budget: bigint;
+  try {
+    budget = toBaseUnits(project.totalBudget, decimals);
+  } catch {
+    throw new EscrowError("The project budget must be a valid USDCx amount with no more than 6 decimal places.");
+  }
+  if (total !== budget) {
+    throw new EscrowError("Milestone amounts must add up exactly to the project budget before funding.");
+  }
+
   onPhase?.("waiting-wallet");
   const expectedId = await getNextId();
 
