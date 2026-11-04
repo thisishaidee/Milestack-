@@ -296,7 +296,7 @@ async function waitForTx(txid: string): Promise<{ status: string; repr?: string 
         }
         if (status.startsWith("abort") || status === "rejected") {
           const repr = String(data?.tx_result?.repr ?? "");
-          const match = repr.match(/u(\\d+)/);
+          const match = repr.match(/u(\d+)/);
           const code = match ? Number(match[1]) : undefined;
           throw new EscrowError(
             (code !== undefined && ESCROW_ERRORS[code]) ||
@@ -319,7 +319,7 @@ async function waitForTx(txid: string): Promise<{ status: string; repr?: string 
 
 function parseOkUint(repr?: string): number | null {
   if (!repr) return null;
-  const match = repr.match(/\\(ok u(\\d+)\\)/i);
+  const match = repr.match(/\(ok u(\d+)\)/i);
   return match ? Number(match[1]) : null;
 }
 
