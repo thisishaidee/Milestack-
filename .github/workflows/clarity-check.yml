@@ -16,6 +16,13 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+      - name: Generate temporary local Clarinet settings
+        run: |
+          mkdir -p "$RUNNER_TEMP"
+          cd "$RUNNER_TEMP"
+          clarinet new milestack-ci-template
+          mkdir -p "$GITHUB_WORKSPACE/settings"
+          cp milestack-ci-template/settings/Devnet.toml "$GITHUB_WORKSPACE/settings/Devnet.toml"
       - name: Validate Clarity contracts
         run: clarinet check
       - name: Check Clarity formatting
