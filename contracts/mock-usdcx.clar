@@ -1,4 +1,5 @@
 
+
 ;; Test-only SIP-010 token. Not for production.
 (impl-trait .sip-010-trait.sip-010-trait)
 
