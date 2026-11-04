@@ -1,4 +1,3 @@
-
 ;; MileStack v1 escrow.
 ;; Source of truth for project funds, milestones, contributors, payments, refunds.
 
