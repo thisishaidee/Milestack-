@@ -1,4 +1,4 @@
-2026-11-04T17:18:40.9113004Z ;; Test-only SIP-010 token. Not for production.
+;; Test-only SIP-010 token. Not for production.
 (impl-trait .sip-010-trait.sip-010-trait)
 
 (define-fungible-token usdcx)
