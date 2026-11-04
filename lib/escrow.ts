@@ -6,8 +6,9 @@ import {
   Pc,
   fetchCallReadOnlyFunction,
   cvToJSON,
+  postConditionToHex,
 } from "@stacks/transactions";
-import { getUserAddress } from "@/lib/stacks";
+import { getUserAddress, isTestnetAddress } from "@/lib/stacks";
 import {
   STACKS_NETWORK,
   STACKS_API_URL,
@@ -17,7 +18,6 @@ import {
   ESCROW_CONTRACT_ADDRESS,
   ESCROW_CONTRACT_NAME,
   ESCROW_ERRORS,
-  TESTNET_ADDRESS_PREFIX,
   MAX_MILESTONES,
 } from "@/lib/constants";
 import { toBaseUnits, fromBaseUnits } from "@/lib/units";
@@ -42,52 +42,6 @@ export type TxPhase =
   | "confirming"
   | "confirmed"
   | "failed";
-
-
-/**
- * Next usable nonce for `address`, accounting for the mempool.
- *
- * Primary: Hiro /extended/v1/address/{addr}/nonces -> possible_next_nonce.
- * Fallback (endpoint missing or erroring): /v2/accounts confirmed nonce plus the
- * count of this address's pending mempool transactions, so a pending tx is never
- * ignored even if the extended endpoint is unavailable.
- */
-export async function getNextNonce(address: string): Promise<number> {
-  const addr = encodeURIComponent(address);
-  try {
-    const res = await fetch(`${STACKS_API_URL}/extended/v1/address/${addr}/nonces`, {
-      cache: "no-store",
-    });
-    if (res.ok) {
-      const data = (await res.json()) as { possible_next_nonce?: number | string };
-      const nonce = Number(data.possible_next_nonce);
-      if (Number.isInteger(nonce) && nonce >= 0) return nonce;
-    }
-  } catch {
-    // fall through to the confirmed-nonce fallback
-  }
-
-  const [accountRes, mempoolRes] = await Promise.all([
-    fetch(`${STACKS_API_URL}/v2/accounts/${addr}?proof=0`, { cache: "no-store" }),
-    fetch(`${STACKS_API_URL}/extended/v1/address/${addr}/mempool?limit=1`, {
-      cache: "no-store",
-    }),
-  ]);
-  if (!accountRes.ok) {
-    throw new EscrowError(`Failed to fetch nonce for ${address} (${accountRes.status}).`);
-  }
-  const account = (await accountRes.json()) as { nonce?: number | string };
-  const confirmed = Number(account.nonce);
-  if (!Number.isInteger(confirmed) || confirmed < 0) {
-    throw new EscrowError("The node returned an invalid nonce.");
-  }
-  let pending = 0;
-  if (mempoolRes.ok) {
-    const mempool = (await mempoolRes.json()) as { total?: number };
-    pending = Number.isInteger(mempool.total) ? Number(mempool.total) : 0;
-  }
-  return confirmed + pending;
-}
 
 export interface OnChainProject {
   id: number;
@@ -151,7 +105,7 @@ async function assertCallerIsProjectClient(
 }
 
 export function isTestnetPrincipal(address: string): boolean {
-  return address.trim().startsWith(TESTNET_ADDRESS_PREFIX) && address.length > 3;
+  return isTestnetAddress(address);
 }
 
 function tokenPrincipalCv() {
@@ -165,24 +119,16 @@ function tokenAssetId(): `${string}.${string}` {
   return `${USDCX_TOKEN_CONTRACT_ADDRESS}.${USDCX_TOKEN_CONTRACT_NAME}`;
 }
 
-function tokenPostCondition(sender: string, amount: bigint) {
-  return Pc.principal(sender).willSendEq(amount).ft(tokenAssetId(), USDCX_TOKEN_ASSET_NAME);
+// Xverse expects serialized post-conditions (hex strings), not SDK Pc objects.
+// Keep the same explicit transfer limits while making the wallet payload compatible.
+function tokenPostCondition(sender: string, amount: bigint): string {
+  return postConditionToHex(
+    Pc.principal(sender).willSendEq(amount).ft(tokenAssetId(), USDCX_TOKEN_ASSET_NAME)
+  );
 }
 
 function jsonValue(cv: unknown): any {
   return cvToJSON(cv as never);
-}
-
-function unwrapOk(json: any): any {
-  if (json?.success === false) {
-    const code = Number(json?.value?.value ?? json?.value);
-    throw new EscrowError(
-      ESCROW_ERRORS[code] ?? `Escrow call failed (${code || "unknown"}).`,
-      undefined,
-      Number.isFinite(code) ? code : undefined
-    );
-  }
-  return json?.value ?? json;
 }
 
 function readUint(field: any): bigint {
@@ -265,6 +211,61 @@ export async function getNextId(): Promise<number> {
   return Number(typeof value === "object" ? value.value ?? value : value);
 }
 
+export async function getClientProjectCount(client: string): Promise<number> {
+  const escrow = requireEscrowContract();
+  const result = await fetchCallReadOnlyFunction({
+    contractAddress: escrow.address,
+    contractName: escrow.name,
+    functionName: "get-client-project-count",
+    functionArgs: [Cl.principal(client)],
+    network: STACKS_NETWORK,
+    senderAddress: client,
+  });
+  return Number(readUint(jsonValue(result)));
+}
+
+export async function getClientProjectIds(
+  client: string,
+  startIndex = 0,
+  limit = 20
+): Promise<{ total: number; ids: number[] }> {
+  if (!Number.isInteger(startIndex) || startIndex < 0) {
+    throw new EscrowError("Project recovery start index must be a non-negative integer.");
+  }
+  if (!Number.isInteger(limit) || limit < 1 || limit > 20) {
+    throw new EscrowError("Project recovery page size must be between 1 and 20.");
+  }
+
+  const total = await getClientProjectCount(client);
+  const end = Math.min(total, startIndex + limit);
+  const ids: number[] = [];
+
+  for (let index = startIndex; index < end; index += 5) {
+    const batchEnd = Math.min(end, index + 5);
+    const batch = await Promise.all(
+      Array.from({ length: batchEnd - index }, async (_, offset) => {
+        const escrow = requireEscrowContract();
+        const result = await fetchCallReadOnlyFunction({
+          contractAddress: escrow.address,
+          contractName: escrow.name,
+          functionName: "get-client-project-id",
+          functionArgs: [Cl.principal(client), Cl.uint(index + offset)],
+          network: STACKS_NETWORK,
+          senderAddress: client,
+        });
+        const json = jsonValue(result);
+        if (!json || json.type === "none") return null;
+        const inner = json.type === "some" ? json.value : json;
+        const id = Number(readUint(inner));
+        return Number.isSafeInteger(id) && id > 0 ? id : null;
+      })
+    );
+    ids.push(...batch.filter((id): id is number => id !== null));
+  }
+
+  return { total, ids };
+}
+
 export async function getOnChainProject(id: number): Promise<OnChainProject | null> {
   const escrow = requireEscrowContract();
   const sender = getUserAddress() ?? escrow.address;
@@ -326,10 +327,21 @@ export async function getOnChainMilestones(
   count: number
 ): Promise<OnChainMilestone[]> {
   const rows: OnChainMilestone[] = [];
-  for (let i = 0; i < count; i++) {
-    const row = await getOnChainMilestone(id, i);
-    if (row) rows.push(row);
+  const batchSize = 5;
+
+  // Read in small parallel batches. A fully sequential loop makes a
+  // 20-milestone project wait on 20 separate RPC round trips, while
+  // launching all 20 at once can trigger provider rate limits.
+  for (let start = 0; start < count; start += batchSize) {
+    const end = Math.min(start + batchSize, count);
+    const batch = await Promise.all(
+      Array.from({ length: end - start }, (_, offset) =>
+        getOnChainMilestone(id, start + offset)
+      )
+    );
+    rows.push(...batch.filter((row): row is OnChainMilestone => row !== null));
   }
+
   return rows;
 }
 
@@ -423,6 +435,16 @@ export async function createAndFund(
   }));
   const total = entries.reduce((sum, entry) => sum + entry.amount, 0n);
 
+  let budget: bigint;
+  try {
+    budget = toBaseUnits(project.totalBudget, decimals);
+  } catch {
+    throw new EscrowError("The project budget must be a valid USDCx amount with no more than 6 decimal places.");
+  }
+  if (total !== budget) {
+    throw new EscrowError("Milestone amounts must add up exactly to the project budget before funding.");
+  }
+
   onPhase?.("waiting-wallet");
   const expectedId = await getNextId();
 
@@ -439,7 +461,6 @@ export async function createAndFund(
   ];
 
   const postConditions = [tokenPostCondition(sender, total)];
-  const nonce = await getNextNonce(sender);
 
   let txid: string;
   try {
@@ -450,7 +471,6 @@ export async function createAndFund(
       network: STACKS_NETWORK,
       postConditions,
       postConditionMode: "deny",
-      nonce,
     });
     txid = (response as { txid?: string })?.txid ?? "";
   } catch (error) {
@@ -499,7 +519,6 @@ export async function approveAndPay(
   onPhase?.("waiting-wallet");
 
   const postConditions = [tokenPostCondition(escrow.id, milestone.amount)];
-  const nonce = await getNextNonce(sender);
 
   let txid: string;
   try {
@@ -510,7 +529,6 @@ export async function approveAndPay(
       network: STACKS_NETWORK,
       postConditions,
       postConditionMode: "deny",
-      nonce,
     });
     txid = (response as { txid?: string })?.txid ?? "";
   } catch (error) {
@@ -544,7 +562,6 @@ export async function cancelRemaining(
 
   const postConditions =
     project.remaining > 0n ? [tokenPostCondition(escrow.id, project.remaining)] : [];
-  const nonce = await getNextNonce(sender);
 
   let txid: string;
   try {
@@ -555,7 +572,6 @@ export async function cancelRemaining(
       network: STACKS_NETWORK,
       postConditions,
       postConditionMode: "deny",
-      nonce,
     });
     txid = (response as { txid?: string })?.txid ?? "";
   } catch (error) {
@@ -580,29 +596,43 @@ export function mergeChainIntoProject(
   chainMilestones: OnChainMilestone[],
   decimals: number
 ): Project {
-  const milestones: Milestone[] = local.milestones.map((localMilestone, index) => {
-    const chainRow = chainMilestones.find((row) => row.index === index);
-    if (!chainRow) {
-      return { ...localMilestone, onChainIndex: index };
+  const milestones: Milestone[] = Array.from(
+    { length: chain.milestoneCount },
+    (_, index) => {
+      const localMilestone =
+        local.milestones.find((milestone, localIndex) =>
+          (milestone.onChainIndex ?? localIndex) === index
+        ) ?? {
+          id: `chain-${chain.id}-${index}`,
+          title: `Milestone ${index + 1}`,
+          amount: 0,
+          contributorWallet: "",
+          status: "pending" as const,
+        };
+      const chainRow = chainMilestones.find((row) => row.index === index);
+
+      if (!chainRow) {
+        return { ...localMilestone, onChainIndex: index };
+      }
+
+      const chainStatus =
+        chainRow.status === "paid"
+          ? "paid"
+          : chainRow.status === "cancelled"
+          ? "cancelled"
+          : localMilestone.status === "completed"
+          ? "completed"
+          : "pending";
+
+      return {
+        ...localMilestone,
+        onChainIndex: index,
+        contributorWallet: chainRow.contributor,
+        amount: Number(fromBaseUnits(chainRow.amount, decimals)),
+        status: chainStatus,
+      };
     }
-
-    const chainStatus =
-      chainRow.status === "paid"
-        ? "paid"
-        : chainRow.status === "cancelled"
-        ? "cancelled"
-        : localMilestone.status === "completed"
-        ? "completed"
-        : "pending";
-
-    return {
-      ...localMilestone,
-      onChainIndex: index,
-      contributorWallet: chainRow.contributor,
-      amount: Number(fromBaseUnits(chainRow.amount, decimals)),
-      status: chainStatus,
-    };
-  });
+  );
 
   return {
     ...local,
@@ -610,6 +640,7 @@ export function mergeChainIntoProject(
     clientWallet: chain.client,
     totalBudget: Number(fromBaseUnits(chain.total, decimals)),
     cancelled: chain.cancelled,
+    chainDetailsLoaded: chainMilestones.length === chain.milestoneCount,
     milestones,
   };
 }

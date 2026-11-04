@@ -11,11 +11,11 @@ import {
 import { formatDisplayAmount } from "@/lib/units";
 import { ESCROW_CONTRACT_ADDRESS } from "@/lib/constants";
 
-interface VaultStatusProps {
+interface EscrowStatusProps {
   onChainId?: number;
 }
 
-export default function VaultStatus({ onChainId }: VaultStatusProps) {
+export default function EscrowStatus({ onChainId }: EscrowStatusProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [project, setProject] = useState<OnChainProject | null>(null);

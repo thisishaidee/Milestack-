@@ -1,0 +1,35 @@
+name: MileStack contract tests
+
+on:
+  push:
+    branches:
+      - fresh-stacks-rebuild
+  pull_request:
+    branches:
+      - main
+      - fresh-stacks-rebuild
+
+jobs:
+  escrow-simnet-tests:
+    runs-on: ubuntu-latest
+    container: ghcr.io/stx-labs/clarinet:latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Generate temporary simnet settings
+        run: |
+          mkdir -p "$RUNNER_TEMP"
+          cd "$RUNNER_TEMP"
+          clarinet new milestack-test-template
+          mkdir -p "$GITHUB_WORKSPACE/contract-tests/settings"
+          cp milestack-test-template/settings/Devnet.toml "$GITHUB_WORKSPACE/contract-tests/settings/Devnet.toml"
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install contract test dependencies
+        working-directory: contract-tests
+        run: npm install --no-audit --no-fund
+      - name: Run escrow behavior tests
+        working-directory: contract-tests
+        run: npm test

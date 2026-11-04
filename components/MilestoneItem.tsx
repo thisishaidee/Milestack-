@@ -15,6 +15,7 @@ interface MilestoneItemProps {
   errors?: MilestoneFieldErrors;
   locked: boolean;
   funded: boolean;
+  chainDetailsLoaded: boolean;
   onChainId?: number;
   clientAddress?: string;
   onChange: (id: string, updates: Partial<Milestone>) => void;
@@ -35,6 +36,7 @@ export default function MilestoneItem({
   errors,
   locked,
   funded,
+  chainDetailsLoaded,
   onChainId,
   clientAddress,
   onChange,
@@ -77,8 +79,8 @@ export default function MilestoneItem({
           <input
             id={`amount-${milestone.id}`}
             type="number"
-            min="0"
-            step="any"
+            min="0.000001"
+            step="0.000001"
             value={milestone.amount === 0 ? "" : milestone.amount}
             disabled={locked}
             onChange={(e) =>
@@ -112,7 +114,7 @@ export default function MilestoneItem({
       </div>
 
       <div className="mt-4 flex flex-wrap items-center justify-end gap-2">
-        {funded && milestone.status === "pending" && (
+        {funded && chainDetailsLoaded && milestone.status === "pending" && (
           <button
             type="button"
             onClick={() => onChange(milestone.id, { status: "completed" })}
@@ -127,6 +129,7 @@ export default function MilestoneItem({
           onChainId={onChainId}
           clientAddress={clientAddress}
           funded={funded}
+          chainDetailsLoaded={chainDetailsLoaded}
           onPaid={(txHash) => onPaid(milestone.id, txHash)}
         />
       </div>

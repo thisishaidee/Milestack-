@@ -3,6 +3,8 @@
 import { useState } from "react";
 import type { Project } from "@/types/project";
 import type { Milestone } from "@/types/milestone";
+import { toBaseUnits } from "@/lib/units";
+import { isTestnetAddress } from "@/lib/stacks";
 
 interface ProjectFormProps {
   onCreate: (project: Project) => void;
@@ -35,13 +37,20 @@ export default function ProjectForm({
 
     if (!totalBudget.trim()) {
       nextErrors.totalBudget = "Total budget is required.";
-    } else if (Number.isNaN(budget) || budget <= 0) {
-      nextErrors.totalBudget =
-        "Total budget must be greater than 0.";
+    } else if (!Number.isFinite(budget) || budget <= 0) {
+      nextErrors.totalBudget = "Total budget must be greater than 0.";
+    } else {
+      try {
+        toBaseUnits(totalBudget, 6);
+      } catch {
+        nextErrors.totalBudget = "USDCx amounts can have up to 6 decimal places.";
+      }
     }
 
     if (!clientWallet.trim()) {
       nextErrors.clientWallet = "Client wallet is required.";
+    } else if (!isTestnetAddress(clientWallet)) {
+      nextErrors.clientWallet = "Enter a valid Stacks Testnet wallet address (ST or SN).";
     }
 
     const milestones = Number(milestoneCount);
@@ -88,8 +97,6 @@ export default function ProjectForm({
       totalBudget: Number(totalBudget),
       clientWallet: clientWallet.trim(),
       milestones: placeholderMilestones,
-      vaultBalance: 0,
-      releasedBalance: 0,
       createdAt: new Date().toISOString(),
     };
 
@@ -143,6 +150,8 @@ export default function ProjectForm({
         <input
           id="totalBudget"
           type="number"
+          min="0.000001"
+          step="0.000001"
           value={totalBudget}
           onChange={(e) => setTotalBudget(e.target.value)}
           placeholder="5000"

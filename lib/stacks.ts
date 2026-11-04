@@ -17,7 +17,7 @@ import {
   isConnected,
   getLocalStorage,
 } from "@stacks/connect";
-import { TESTNET_ADDRESS_PREFIX } from "@/lib/constants";
+import { validateStacksAddress } from "@stacks/transactions";
 
 type WalletListener = (address: string | null) => void;
 const walletListeners = new Set<WalletListener>();
@@ -60,8 +60,12 @@ function readSession(): StacksUserSession | null {
   return { stxAddress, btcAddress };
 }
 
-function isTestnetAddress(address: string): boolean {
-  return address.startsWith(TESTNET_ADDRESS_PREFIX);
+export function isTestnetAddress(address: string): boolean {
+  const normalized = address.trim();
+  return (
+    validateStacksAddress(normalized) &&
+    (normalized.startsWith("ST") || normalized.startsWith("SN"))
+  );
 }
 
 /**
@@ -109,7 +113,8 @@ export function getUserAddress(): string | null {
       return null;
     }
 
-    return readSession()?.stxAddress ?? null;
+    const address = readSession()?.stxAddress ?? null;
+    return address && isTestnetAddress(address) ? address : null;
   } catch (error) {
     console.error("[stacks] Failed to read connected address:", error);
     return null;

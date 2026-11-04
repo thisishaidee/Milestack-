@@ -1,0 +1,14 @@
+{
+  "name": "milestack-contract-tests",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@stacks/clarinet-sdk": "3.26.0",
+    "@stacks/transactions": "7.5.0",
+    "vitest": "4.0.7",
+    "vitest-environment-clarinet": "3.0.2"
+  }
+}

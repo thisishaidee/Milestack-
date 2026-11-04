@@ -29,90 +29,142 @@
     remaining: uint,
     milestone-count: uint,
     cancelled: bool,
-    created-at-block: uint
+    created-at-block: uint,
   }
 )
 
 (define-map milestones
-  { id: uint, index: uint }
+  {
+    id: uint,
+    index: uint,
+  }
   {
     contributor: principal,
     amount: uint,
-    status: uint
+    status: uint,
   }
 )
 
-(define-constant INDEX-RANGE
-  (list u0 u1 u2 u3 u4 u5 u6 u7 u8 u9 u10 u11 u12 u13 u14 u15 u16 u17 u18 u19)
+;; Per-client index makes funded projects discoverable without scanning tx history.
+(define-map client-projects
+  {
+    client: principal,
+    index: uint,
+  }
+  uint
 )
 
-(define-private (validate-entry
-  (entry { contributor: principal, amount: uint })
-  (acc { ok-amount: bool, ok-self: bool, total: uint, client: principal })
+(define-map client-project-counts
+  principal
+  uint
 )
+
+(define-constant INDEX-RANGE (list u0 u1 u2 u3 u4 u5 u6 u7 u8 u9 u10 u11 u12 u13 u14 u15 u16 u17 u18 u19))
+
+(define-private (validate-entry
+    (entry {
+      contributor: principal,
+      amount: uint,
+    })
+    (acc {
+      ok-amount: bool,
+      ok-self: bool,
+      total: uint,
+      client: principal,
+    })
+  )
   {
     ok-amount: (and (get ok-amount acc) (> (get amount entry) u0)),
-    ok-self: (and (get ok-self acc) (not (is-eq (get contributor entry) (get client acc)))),
+    ok-self: (and
+      (get ok-self acc)
+      (not (is-eq (get contributor entry) (get client acc)))
+    ),
     total: (+ (get total acc) (get amount entry)),
-    client: (get client acc)
+    client: (get client acc),
   }
 )
 
 (define-private (write-entry
-  (entry { contributor: principal, amount: uint })
-  (acc { id: uint, index: uint })
-)
+    (entry {
+      contributor: principal,
+      amount: uint,
+    })
+    (acc {
+      id: uint,
+      index: uint,
+    })
+  )
   (begin
-    (map-set milestones { id: (get id acc), index: (get index acc) }
-      {
-        contributor: (get contributor entry),
-        amount: (get amount entry),
-        status: STATUS-PENDING
-      }
-    )
-    { id: (get id acc), index: (+ (get index acc) u1) }
+    (map-set milestones {
+      id: (get id acc),
+      index: (get index acc),
+    } {
+      contributor: (get contributor entry),
+      amount: (get amount entry),
+      status: STATUS-PENDING,
+    })
+    {
+      id: (get id acc),
+      index: (+ (get index acc) u1),
+    }
   )
 )
 
-(define-private (cancel-if-pending (index uint) (id uint))
-  (match (map-get? milestones { id: id, index: index })
-    row
-      (begin
-        (if (is-eq (get status row) STATUS-PENDING)
-          (map-set milestones { id: id, index: index }
-            (merge row { status: STATUS-CANCELLED })
-          )
-          true
+(define-private (cancel-if-pending
+    (index uint)
+    (id uint)
+  )
+  (match (map-get? milestones {
+    id: id,
+    index: index,
+  })
+    row (begin
+      (if (is-eq (get status row) STATUS-PENDING)
+        (map-set milestones {
+          id: id,
+          index: index,
+        }
+          (merge row { status: STATUS-CANCELLED })
         )
-        id
+        true
       )
+      id
+    )
     id
   )
 )
 
 (define-public (create-and-fund
-  (token <sip-010-trait>)
-  (entries (list 20 { contributor: principal, amount: uint }))
-)
+    (token <sip-010-trait>)
+    (entries (list 20 {
+      contributor: principal,
+      amount: uint,
+    }))
+  )
   (let (
       (client tx-sender)
       (count (len entries))
-      (checked
-        (fold validate-entry entries {
-          ok-amount: true,
-          ok-self: true,
-          total: u0,
-          client: client
-        })
-      )
+      (checked (fold validate-entry entries {
+        ok-amount: true,
+        ok-self: true,
+        total: u0,
+        client: client,
+      }))
       (total (get total checked))
       (id (var-get next-id))
+      (client-index (default-to u0 (map-get? client-project-counts client)))
       (escrow (as-contract tx-sender))
     )
     (asserts! (> count u0) ERR-EMPTY-SCHEDULE)
+    (asserts!
+      (is-eq (contract-of token) 'ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM.usdcx)
+      ERR-WRONG-TOKEN
+    )
     (asserts! (get ok-amount checked) ERR-INVALID-AMOUNT)
     (asserts! (get ok-self checked) ERR-SELF-PAY)
-    (unwrap! (contract-call? token transfer total client escrow none) ERR-TRANSFER-FAILED)
+    (unwrap! (contract-call? token transfer total client escrow none)
+      ERR-TRANSFER-FAILED
+    )
     (map-set projects id {
       client: client,
       token: (contract-of token),
@@ -120,29 +172,45 @@
       remaining: total,
       milestone-count: count,
       cancelled: false,
-      created-at-block: block-height
+      created-at-block: stacks-block-height,
     })
-    (fold write-entry entries { id: id, index: u0 })
+    (map-set client-projects {
+      client: client,
+      index: client-index,
+    }
+      id
+    )
+    (map-set client-project-counts client (+ client-index u1))
+    (fold write-entry entries {
+      id: id,
+      index: u0,
+    })
     (var-set next-id (+ id u1))
     (print {
       event: "created-and-funded",
       id: id,
       client: client,
       total: total,
-      milestone-count: count
+      milestone-count: count,
     })
     (ok id)
   )
 )
 
 (define-public (approve-and-pay
-  (id uint)
-  (index uint)
-  (token <sip-010-trait>)
-)
+    (id uint)
+    (index uint)
+    (token <sip-010-trait>)
+  )
   (let (
       (project (unwrap! (map-get? projects id) ERR-NOT-FOUND))
-      (row (unwrap! (map-get? milestones { id: id, index: index }) ERR-NOT-FOUND))
+      (row (unwrap!
+        (map-get? milestones {
+          id: id,
+          index: index,
+        })
+        ERR-NOT-FOUND
+      ))
       (amount (get amount row))
       (contributor (get contributor row))
     )
@@ -155,7 +223,10 @@
       (as-contract (contract-call? token transfer amount tx-sender contributor none))
       ERR-TRANSFER-FAILED
     )
-    (map-set milestones { id: id, index: index }
+    (map-set milestones {
+      id: id,
+      index: index,
+    }
       (merge row { status: STATUS-PAID })
     )
     (map-set projects id
@@ -166,16 +237,16 @@
       id: id,
       index: index,
       contributor: contributor,
-      amount: amount
+      amount: amount,
     })
     (ok true)
   )
 )
 
 (define-public (cancel-remaining
-  (id uint)
-  (token <sip-010-trait>)
-)
+    (id uint)
+    (token <sip-010-trait>)
+  )
   (let (
       (project (unwrap! (map-get? projects id) ERR-NOT-FOUND))
       (refund (get remaining project))
@@ -195,13 +266,13 @@
     (map-set projects id
       (merge project {
         remaining: u0,
-        cancelled: true
+        cancelled: true,
       })
     )
     (print {
       event: "cancelled",
       id: id,
-      refunded: refund
+      refunded: refund,
     })
     (ok refund)
   )
@@ -211,10 +282,30 @@
   (map-get? projects id)
 )
 
-(define-read-only (get-milestone (id uint) (index uint))
-  (map-get? milestones { id: id, index: index })
+(define-read-only (get-milestone
+    (id uint)
+    (index uint)
+  )
+  (map-get? milestones {
+    id: id,
+    index: index,
+  })
 )
 
 (define-read-only (get-next-id)
   (var-get next-id)
+)
+
+(define-read-only (get-client-project-count (client principal))
+  (default-to u0 (map-get? client-project-counts client))
+)
+
+(define-read-only (get-client-project-id
+    (client principal)
+    (index uint)
+  )
+  (map-get? client-projects {
+    client: client,
+    index: index,
+  })
 )
