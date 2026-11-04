@@ -45,6 +45,17 @@
   }
 )
 
+;; Per-client index makes funded projects discoverable without scanning tx history.
+(define-map client-projects
+  {
+    client: principal,
+    index: uint,
+  }
+  uint
+)
+
+(define-map client-project-counts principal uint)
+
 (define-constant INDEX-RANGE (list u0 u1 u2 u3 u4 u5 u6 u7 u8 u9 u10 u11 u12 u13 u14 u15 u16 u17 u18 u19))
 
 (define-private (validate-entry
@@ -138,6 +149,7 @@
       }))
       (total (get total checked))
       (id (var-get next-id))
+      (client-index (default-to u0 (map-get? client-project-counts client)))
       (escrow (as-contract tx-sender))
     )
     (asserts! (> count u0) ERR-EMPTY-SCHEDULE)
@@ -159,6 +171,8 @@
       cancelled: false,
       created-at-block: stacks-block-height,
     })
+    (map-set client-projects { client: client, index: client-index } id)
+    (map-set client-project-counts client (+ client-index u1))
     (fold write-entry entries {
       id: id,
       index: u0,
@@ -272,4 +286,18 @@
 
 (define-read-only (get-next-id)
   (var-get next-id)
+)
+
+(define-read-only (get-client-project-count (client principal))
+  (default-to u0 (map-get? client-project-counts client))
+)
+
+(define-read-only (get-client-project-id
+    (client principal)
+    (index uint)
+  )
+  (map-get? client-projects {
+    client: client,
+    index: index,
+  })
 )
