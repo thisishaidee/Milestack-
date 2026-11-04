@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { Project } from "@/types/project";
 import type { Milestone } from "@/types/milestone";
 import { toBaseUnits } from "@/lib/units";
+import { isTestnetAddress } from "@/lib/stacks";
 
 interface ProjectFormProps {
   onCreate: (project: Project) => void;
@@ -48,6 +49,8 @@ export default function ProjectForm({
 
     if (!clientWallet.trim()) {
       nextErrors.clientWallet = "Client wallet is required.";
+    } else if (!isTestnetAddress(clientWallet)) {
+      nextErrors.clientWallet = "Enter a valid Stacks Testnet wallet address (ST or SN).";
     }
 
     const milestones = Number(milestoneCount);
