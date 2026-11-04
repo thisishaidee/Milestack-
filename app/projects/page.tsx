@@ -28,6 +28,7 @@ export default function ProjectsPage() {
       return;
     }
 
+    const clientAddress = walletAddress;
     let active = true;
 
     async function loadProjects() {
@@ -36,19 +37,19 @@ export default function ProjectsPage() {
       setRecoveryError("");
 
       const localForWallet = listProjects().filter(
-        (project) => project.clientWallet === walletAddress
+        (project) => project.clientWallet === clientAddress
       );
 
       try {
-        const total = await getClientProjectCount(walletAddress);
+        const total = await getClientProjectCount(clientAddress);
         const startIndex = Math.max(0, total - 20);
-        const { ids } = await getClientProjectIds(walletAddress, startIndex, Math.min(20, total || 1));
+        const { ids } = await getClientProjectIds(clientAddress, startIndex, Math.min(20, total || 1));
         const decimals = await getUsdcxDecimals();
 
         const recovered = await Promise.all(
           ids.map(async (onChainId) => {
             const chain = await getOnChainProject(onChainId);
-            if (!chain || chain.client !== walletAddress) return null;
+            if (!chain || chain.client !== clientAddress) return null;
 
             const local = localForWallet.find(
               (project) => project.onChainId === onChainId
@@ -56,7 +57,7 @@ export default function ProjectsPage() {
               id: `recovered-${onChainId}`,
               name: `Recovered project #${onChainId}`,
               totalBudget: 0,
-              clientWallet: walletAddress,
+              clientWallet: clientAddress,
               milestones: [],
             };
 
