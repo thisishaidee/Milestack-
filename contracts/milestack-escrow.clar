@@ -1,4 +1,4 @@
-2026-11-04T17:18:40.9043095Z ;; MileStack v1 escrow.
+;; MileStack v1 escrow.
 ;; Source of truth for project funds, milestones, contributors, payments, refunds.
 
 (use-trait sip-010-trait .sip-010-trait.sip-010-trait)
