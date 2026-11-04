@@ -10,12 +10,12 @@ clarity_version = 3
 epoch = "3.0"
 
 [contracts.usdcx]
-path = "../contracts/mock-usdcx.clar"
+path = "contracts/mock-usdcx.clar"
 clarity_version = 3
 epoch = "3.0"
 
 [contracts.fake-token]
-path = "../contracts/mock-usdcx.clar"
+path = "contracts/mock-usdcx.clar"
 clarity_version = 3
 epoch = "3.0"
 
