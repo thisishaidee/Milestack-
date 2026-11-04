@@ -44,51 +44,6 @@ export type TxPhase =
   | "failed";
 
 
-/**
- * Next usable nonce for `address`, accounting for the mempool.
- *
- * Primary: Hiro /extended/v1/address/{addr}/nonces -> possible_next_nonce.
- * Fallback (endpoint missing or erroring): /v2/accounts confirmed nonce plus the
- * count of this address's pending mempool transactions, so a pending tx is never
- * ignored even if the extended endpoint is unavailable.
- */
-export async function getNextNonce(address: string): Promise<number> {
-  const addr = encodeURIComponent(address);
-  try {
-    const res = await fetch(`${STACKS_API_URL}/extended/v1/address/${addr}/nonces`, {
-      cache: "no-store",
-    });
-    if (res.ok) {
-      const data = (await res.json()) as { possible_next_nonce?: number | string };
-      const nonce = Number(data.possible_next_nonce);
-      if (Number.isInteger(nonce) && nonce >= 0) return nonce;
-    }
-  } catch {
-    // fall through to the confirmed-nonce fallback
-  }
-
-  const [accountRes, mempoolRes] = await Promise.all([
-    fetch(`${STACKS_API_URL}/v2/accounts/${addr}?proof=0`, { cache: "no-store" }),
-    fetch(`${STACKS_API_URL}/extended/v1/address/${addr}/mempool?limit=1`, {
-      cache: "no-store",
-    }),
-  ]);
-  if (!accountRes.ok) {
-    throw new EscrowError(`Failed to fetch nonce for ${address} (${accountRes.status}).`);
-  }
-  const account = (await accountRes.json()) as { nonce?: number | string };
-  const confirmed = Number(account.nonce);
-  if (!Number.isInteger(confirmed) || confirmed < 0) {
-    throw new EscrowError("The node returned an invalid nonce.");
-  }
-  let pending = 0;
-  if (mempoolRes.ok) {
-    const mempool = (await mempoolRes.json()) as { total?: number };
-    pending = Number.isInteger(mempool.total) ? Number(mempool.total) : 0;
-  }
-  return confirmed + pending;
-}
-
 export interface OnChainProject {
   id: number;
   client: string;
@@ -439,7 +394,6 @@ export async function createAndFund(
   ];
 
   const postConditions = [tokenPostCondition(sender, total)];
-  const nonce = await getNextNonce(sender);
 
   let txid: string;
   try {
@@ -450,7 +404,6 @@ export async function createAndFund(
       network: STACKS_NETWORK,
       postConditions,
       postConditionMode: "deny",
-      nonce,
     });
     txid = (response as { txid?: string })?.txid ?? "";
   } catch (error) {
@@ -499,7 +452,6 @@ export async function approveAndPay(
   onPhase?.("waiting-wallet");
 
   const postConditions = [tokenPostCondition(escrow.id, milestone.amount)];
-  const nonce = await getNextNonce(sender);
 
   let txid: string;
   try {
@@ -510,7 +462,6 @@ export async function approveAndPay(
       network: STACKS_NETWORK,
       postConditions,
       postConditionMode: "deny",
-      nonce,
     });
     txid = (response as { txid?: string })?.txid ?? "";
   } catch (error) {
@@ -544,7 +495,6 @@ export async function cancelRemaining(
 
   const postConditions =
     project.remaining > 0n ? [tokenPostCondition(escrow.id, project.remaining)] : [];
-  const nonce = await getNextNonce(sender);
 
   let txid: string;
   try {
@@ -555,7 +505,6 @@ export async function cancelRemaining(
       network: STACKS_NETWORK,
       postConditions,
       postConditionMode: "deny",
-      nonce,
     });
     txid = (response as { txid?: string })?.txid ?? "";
   } catch (error) {
