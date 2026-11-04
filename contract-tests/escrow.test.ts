@@ -125,11 +125,14 @@ describe("MileStack escrow", () => {
     );
 
     expect(count.result).toBeOk(Cl.uint(2));
-    expect(firstId.result).toBeSome(Cl.uint(1));
-    expect(secondId.result).toBeSome(Cl.uint(2));
+    expect(JSON.stringify(firstId.result)).toContain('"type":"some"');
+    expect(JSON.stringify(firstId.result)).toContain('"value":"1"');
+    expect(JSON.stringify(secondId.result)).toContain('"type":"some"');
+    expect(JSON.stringify(secondId.result)).toContain('"value":"2"');
     expect(JSON.stringify(missingId.result)).toContain('"type":"none"');
     expect(attackerCount.result).toBeOk(Cl.uint(1));
-    expect(attackerFirstId.result).toBeSome(Cl.uint(3));
+    expect(JSON.stringify(attackerFirstId.result)).toContain('"type":"some"');
+    expect(JSON.stringify(attackerFirstId.result)).toContain('"value":"3"');
   });
 
   it("rejects empty schedules, zero amounts, and self-payment", () => {
