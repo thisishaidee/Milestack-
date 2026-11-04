@@ -110,6 +110,7 @@
       (escrow (as-contract tx-sender))
     )
     (asserts! (> count u0) ERR-EMPTY-SCHEDULE)
+    (asserts! (is-eq (contract-of token) 'ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM.usdcx) ERR-WRONG-TOKEN)
     (asserts! (get ok-amount checked) ERR-INVALID-AMOUNT)
     (asserts! (get ok-self checked) ERR-SELF-PAY)
     (unwrap! (contract-call? token transfer total client escrow none) ERR-TRANSFER-FAILED)
