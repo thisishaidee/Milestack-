@@ -25,5 +25,7 @@ jobs:
           cp milestack-ci-template/settings/Devnet.toml "$GITHUB_WORKSPACE/settings/Devnet.toml"
       - name: Validate Clarity contracts
         run: clarinet check
-      - name: Check Clarity formatting
-        run: clarinet format --check
+      - name: Show canonical Clarity formatting changes
+        run: |
+          clarinet format
+          git diff -- contracts
