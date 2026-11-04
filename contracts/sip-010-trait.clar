@@ -1,4 +1,4 @@
-2026-11-04T17:18:40.9121073Z (define-trait sip-010-trait (
+(define-trait sip-010-trait (
   (transfer
     (uint principal principal (optional (buff 34)))
     (response bool uint)
