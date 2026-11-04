@@ -162,6 +162,51 @@ describe("MileStack escrow", () => {
     expect(balance(deployer + ".milestack-escrow").result).toBeOk(Cl.uint(20));
   });
 
+
+  it("rejects a schedule larger than the 20-milestone contract limit", () => {
+    expect(mintClient(21).result).toBeOk(Cl.bool(true));
+    expect(() =>
+      createProject(entries(
+        Array.from({ length: 21 }, () => ({
+          contributor: contributorA,
+          amount: 1,
+        }))
+      ))
+    ).toThrow();
+    expect(balance(deployer + ".milestack-escrow").result).toBeOk(Cl.uint(0));
+  });
+
+  it("rejects reads and actions for missing projects or milestones", () => {
+    const missingProject = simnet.callPublicFn(
+      "milestack-escrow",
+      "approve-and-pay",
+      [Cl.uint(999), Cl.uint(0), token()],
+      client
+    );
+    expect(missingProject.result).toBeErr(Cl.uint(2106));
+
+    expect(mintClient(10).result).toBeOk(Cl.bool(true));
+    expect(createProject(entries([
+      { contributor: contributorA, amount: 10 },
+    ])).result).toBeOk(Cl.uint(1));
+
+    const missingMilestone = simnet.callPublicFn(
+      "milestack-escrow",
+      "approve-and-pay",
+      [Cl.uint(1), Cl.uint(1), token()],
+      client
+    );
+    expect(missingMilestone.result).toBeErr(Cl.uint(2106));
+
+    const missingRow = simnet.callReadOnlyFn(
+      "milestack-escrow",
+      "get-milestone",
+      [Cl.uint(999), Cl.uint(0)],
+      client
+    );
+    expect(JSON.stringify(missingRow.result)).toContain('"type":"none"');
+  });
+
   it("rejects the wrong token for payout and cancellation", () => {
     expect(mintClient(30).result).toBeOk(Cl.bool(true));
     expect(createProject(entries([
