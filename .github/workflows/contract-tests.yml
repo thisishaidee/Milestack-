@@ -1,0 +1,27 @@
+name: MileStack contract tests
+
+on:
+  push:
+    branches:
+      - fresh-stacks-rebuild
+  pull_request:
+    branches:
+      - main
+      - fresh-stacks-rebuild
+
+jobs:
+  escrow-simnet-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install contract test dependencies
+        working-directory: contract-tests
+        run: npm install --no-audit --no-fund
+      - name: Run escrow behavior tests
+        working-directory: contract-tests
+        run: npm test
