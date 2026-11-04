@@ -149,4 +149,119 @@ describe("MileStack escrow", () => {
     expect(unauthorized.result).toBeErr(Cl.uint(2107));
     expect(balance(deployer + ".milestack-escrow").result).toBeOk(Cl.uint(25));
   });
+
+  it("accepts the maximum schedule of 20 milestones", () => {
+    expect(mintClient(20).result).toBeOk(Cl.bool(true));
+    const schedule = entries(
+      Array.from({ length: 20 }, () => ({
+        contributor: contributorA,
+        amount: 1,
+      }))
+    );
+    expect(createProject(schedule).result).toBeOk(Cl.uint(1));
+    expect(balance(deployer + ".milestack-escrow").result).toBeOk(Cl.uint(20));
+  });
+
+  it("rejects the wrong token for payout and cancellation", () => {
+    expect(mintClient(30).result).toBeOk(Cl.bool(true));
+    expect(createProject(entries([
+      { contributor: contributorA, amount: 30 },
+    ])).result).toBeOk(Cl.uint(1));
+
+    const wrongPayoutToken = simnet.callPublicFn(
+      "milestack-escrow",
+      "approve-and-pay",
+      [Cl.uint(1), Cl.uint(0), token("fake-token")],
+      client
+    );
+    expect(wrongPayoutToken.result).toBeErr(Cl.uint(2109));
+
+    const wrongRefundToken = simnet.callPublicFn(
+      "milestack-escrow",
+      "cancel-remaining",
+      [Cl.uint(1), token("fake-token")],
+      client
+    );
+    expect(wrongRefundToken.result).toBeErr(Cl.uint(2109));
+    expect(balance(deployer + ".milestack-escrow").result).toBeOk(Cl.uint(30));
+    expect(balance(contributorA).result).toBeOk(Cl.uint(0));
+  });
+
+  it("tracks paid and cancelled milestone states after a partial refund", () => {
+    expect(mintClient(100).result).toBeOk(Cl.bool(true));
+    expect(createProject(entries([
+      { contributor: contributorA, amount: 40 },
+      { contributor: contributorB, amount: 60 },
+    ])).result).toBeOk(Cl.uint(1));
+
+    expect(simnet.callPublicFn(
+      "milestack-escrow",
+      "approve-and-pay",
+      [Cl.uint(1), Cl.uint(0), token()],
+      client
+    ).result).toBeOk(Cl.bool(true));
+
+    const paidRow = simnet.callReadOnlyFn(
+      "milestack-escrow",
+      "get-milestone",
+      [Cl.uint(1), Cl.uint(0)],
+      client
+    );
+    const pendingRow = simnet.callReadOnlyFn(
+      "milestack-escrow",
+      "get-milestone",
+      [Cl.uint(1), Cl.uint(1)],
+      client
+    );
+    expect(JSON.stringify(paidRow.result)).toContain('"value":"1"');
+    expect(JSON.stringify(pendingRow.result)).toContain('"value":"0"');
+
+    expect(simnet.callPublicFn(
+      "milestack-escrow",
+      "cancel-remaining",
+      [Cl.uint(1), token()],
+      client
+    ).result).toBeOk(Cl.uint(60));
+
+    const cancelledRow = simnet.callReadOnlyFn(
+      "milestack-escrow",
+      "get-milestone",
+      [Cl.uint(1), Cl.uint(1)],
+      client
+    );
+    expect(JSON.stringify(cancelledRow.result)).toContain('"value":"2"');
+    expect(balance(deployer + ".milestack-escrow").result).toBeOk(Cl.uint(0));
+  });
+
+  it("keeps the escrow remainder exact across multiple milestone payouts", () => {
+    expect(mintClient(100).result).toBeOk(Cl.bool(true));
+    expect(createProject(entries([
+      { contributor: contributorA, amount: 20 },
+      { contributor: contributorB, amount: 30 },
+      { contributor: attacker, amount: 50 },
+    ])).result).toBeOk(Cl.uint(1));
+
+    for (const index of [0, 1]) {
+      expect(simnet.callPublicFn(
+        "milestack-escrow",
+        "approve-and-pay",
+        [Cl.uint(1), Cl.uint(index), token()],
+        client
+      ).result).toBeOk(Cl.bool(true));
+    }
+
+    expect(balance(contributorA).result).toBeOk(Cl.uint(20));
+    expect(balance(contributorB).result).toBeOk(Cl.uint(30));
+    expect(balance(deployer + ".milestack-escrow").result).toBeOk(Cl.uint(50));
+
+    expect(simnet.callPublicFn(
+      "milestack-escrow",
+      "cancel-remaining",
+      [Cl.uint(1), token()],
+      client
+    ).result).toBeOk(Cl.uint(50));
+
+    expect(balance(client).result).toBeOk(Cl.uint(50));
+    expect(balance(deployer + ".milestack-escrow").result).toBeOk(Cl.uint(0));
+  });
 });
