@@ -124,13 +124,13 @@ describe("MileStack escrow", () => {
       attacker
     );
 
-    expect(count.result).toBeOk(Cl.uint(2));
+    expect(count.result).toEqual(Cl.uint(2));
     expect(JSON.stringify(firstId.result)).toContain('"type":"some"');
     expect(JSON.stringify(firstId.result)).toContain('"value":"1"');
     expect(JSON.stringify(secondId.result)).toContain('"type":"some"');
     expect(JSON.stringify(secondId.result)).toContain('"value":"2"');
     expect(JSON.stringify(missingId.result)).toContain('"type":"none"');
-    expect(attackerCount.result).toBeOk(Cl.uint(1));
+    expect(attackerCount.result).toEqual(Cl.uint(1));
     expect(JSON.stringify(attackerFirstId.result)).toContain('"type":"some"');
     expect(JSON.stringify(attackerFirstId.result)).toContain('"value":"3"');
   });
