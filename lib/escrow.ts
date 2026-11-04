@@ -211,6 +211,61 @@ export async function getNextId(): Promise<number> {
   return Number(typeof value === "object" ? value.value ?? value : value);
 }
 
+export async function getClientProjectCount(client: string): Promise<number> {
+  const escrow = requireEscrowContract();
+  const result = await fetchCallReadOnlyFunction({
+    contractAddress: escrow.address,
+    contractName: escrow.name,
+    functionName: "get-client-project-count",
+    functionArgs: [Cl.principal(client)],
+    network: STACKS_NETWORK,
+    senderAddress: client,
+  });
+  return Number(readUint(jsonValue(result)));
+}
+
+export async function getClientProjectIds(
+  client: string,
+  startIndex = 0,
+  limit = 20
+): Promise<{ total: number; ids: number[] }> {
+  if (!Number.isInteger(startIndex) || startIndex < 0) {
+    throw new EscrowError("Project recovery start index must be a non-negative integer.");
+  }
+  if (!Number.isInteger(limit) || limit < 1 || limit > 20) {
+    throw new EscrowError("Project recovery page size must be between 1 and 20.");
+  }
+
+  const total = await getClientProjectCount(client);
+  const end = Math.min(total, startIndex + limit);
+  const ids: number[] = [];
+
+  for (let index = startIndex; index < end; index += 5) {
+    const batchEnd = Math.min(end, index + 5);
+    const batch = await Promise.all(
+      Array.from({ length: batchEnd - index }, async (_, offset) => {
+        const escrow = requireEscrowContract();
+        const result = await fetchCallReadOnlyFunction({
+          contractAddress: escrow.address,
+          contractName: escrow.name,
+          functionName: "get-client-project-id",
+          functionArgs: [Cl.principal(client), Cl.uint(index + offset)],
+          network: STACKS_NETWORK,
+          senderAddress: client,
+        });
+        const json = jsonValue(result);
+        if (!json || json.type === "none") return null;
+        const inner = json.type === "some" ? json.value : json;
+        const id = Number(readUint(inner));
+        return Number.isSafeInteger(id) && id > 0 ? id : null;
+      })
+    );
+    ids.push(...batch.filter((id): id is number => id !== null));
+  }
+
+  return { total, ids };
+}
+
 export async function getOnChainProject(id: number): Promise<OnChainProject | null> {
   const escrow = requireEscrowContract();
   const sender = getUserAddress() ?? escrow.address;
