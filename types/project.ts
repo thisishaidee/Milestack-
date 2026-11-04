@@ -11,4 +11,5 @@ export interface Project {
   depositTxid?: string;
   cancelTxid?: string;
   cancelled?: boolean;
+  chainDetailsLoaded?: boolean;
 }
