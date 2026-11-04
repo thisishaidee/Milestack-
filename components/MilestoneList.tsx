@@ -25,6 +25,7 @@ export default function MilestoneList({ project, onUpdate, onRefreshChain }: Mil
   }, [project.milestones]);
 
   const funded = typeof project.onChainId === "number";
+  const chainDetailsLoaded = !funded || project.chainDetailsLoaded === true;
   const runningTotal = useMemo(
     () => milestones.reduce((sum, m) => sum + (Number(m.amount) || 0), 0),
     [milestones]
@@ -92,6 +93,23 @@ export default function MilestoneList({ project, onUpdate, onRefreshChain }: Mil
 
   return (
     <form onSubmit={handleSave} className="space-y-4">
+      {funded && !chainDetailsLoaded && (
+        <div className="rounded-lg border border-amber-400/20 bg-amber-400/5 p-4">
+          <p className="text-sm text-amber-200">
+            Current milestone details have not been verified from Stacks Testnet. Payout approval is paused until the chain data loads.
+          </p>
+          {onRefreshChain && (
+            <button
+              type="button"
+              onClick={() => void onRefreshChain()}
+              className="mt-3 rounded-md border border-white/20 px-3 py-2 text-xs font-medium text-white/80 hover:bg-white/5"
+            >
+              Refresh on-chain details
+            </button>
+          )}
+        </div>
+      )}
+
       <div className="space-y-3">
         {milestones.map((milestone, index) => (
           <MilestoneItem
@@ -101,6 +119,7 @@ export default function MilestoneList({ project, onUpdate, onRefreshChain }: Mil
             errors={fieldErrors[milestone.id]}
             locked={funded}
             funded={funded}
+            chainDetailsLoaded={chainDetailsLoaded}
             onChainId={project.onChainId}
             clientAddress={project.clientWallet}
             onChange={handleMilestoneChange}
