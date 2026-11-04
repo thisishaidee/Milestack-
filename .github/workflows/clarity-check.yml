@@ -27,5 +27,5 @@ jobs:
         run: clarinet check
       - name: Show canonical Clarity formatting changes
         run: |
-          clarinet format
+          clarinet format --in-place
           git diff -- contracts
