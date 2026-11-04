@@ -77,8 +77,8 @@ export default function MilestoneItem({
           <input
             id={`amount-${milestone.id}`}
             type="number"
-            min="0"
-            step="any"
+            min="0.000001"
+            step="0.000001"
             value={milestone.amount === 0 ? "" : milestone.amount}
             disabled={locked}
             onChange={(e) =>
